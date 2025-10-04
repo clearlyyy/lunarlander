@@ -8,7 +8,7 @@ export default class ShipCamera {
 
         this.distance = 150;          // default distance from ship
         this.minDistance = 20;
-        this.maxDistance = 500;
+        this.maxDistance = 9000;
 
         this.azimuth = 0;             // horizontal rotation
         this.elevation = Math.PI / 6; // vertical rotation
@@ -39,7 +39,7 @@ export default class ShipCamera {
             this.prevMouse.set(e.clientX, e.clientY);
 
             this.azimuth -= deltaX * 0.005;
-            this.elevation -= deltaY * 0.005;
+            this.elevation += deltaY * 0.005;
 
             const maxElev = Math.PI / 2 - 0.01;
             const minElev = -Math.PI / 2 + 0.01;
@@ -55,18 +55,30 @@ export default class ShipCamera {
         });
     }
 
-    updateCamera() {
-        if (!this.ship.mesh) return; // <-- prevent errors until mesh is loaded
+    updateCamera(moonPos = new THREE.Vector3(0, 0, 0)) {
+    if (!this.ship.mesh) return;
 
-        const offset = new THREE.Vector3(
-            Math.cos(this.elevation) * Math.sin(this.azimuth),
-            -Math.sin(this.elevation),
-            Math.cos(this.elevation) * Math.cos(this.azimuth)
-        ).multiplyScalar(this.distance);
+    const shipPos = this.ship.mesh.position;
+    const up = shipPos.clone().sub(moonPos).normalize(); // radial up
 
-        this.camera.position.copy(this.ship.mesh.position.clone().add(offset));
-        this.camera.lookAt(this.ship.mesh.position);
-    } 
+    // Build a local frame: right & forward
+    const forward = new THREE.Vector3(0, 0, 1); // arbitrary initial forward
+    if (up.dot(forward) > 0.999) forward.set(1, 0, 0); // avoid parallel
+    const right = new THREE.Vector3().crossVectors(up, forward).normalize();
+    const localForward = new THREE.Vector3().crossVectors(right, up).normalize();
+
+    // Compute offset in local frame
+    const offset = new THREE.Vector3();
+    offset.add(right.clone().multiplyScalar(Math.sin(this.azimuth) * Math.cos(this.elevation) * this.distance));
+    offset.add(localForward.clone().multiplyScalar(Math.cos(this.azimuth) * Math.cos(this.elevation) * this.distance));
+    offset.add(up.clone().multiplyScalar(Math.sin(this.elevation) * this.distance));
+
+    // Set camera
+    this.camera.position.copy(shipPos.clone().add(offset));
+    this.camera.up.copy(up);
+    this.camera.lookAt(shipPos);
+}
+ 
 
     update() {
         this.updateCamera();

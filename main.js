@@ -1,47 +1,27 @@
 import * as THREE from 'three';
 import { TilesRenderer } from '3d-tiles-renderer';
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
+import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
+import { FilmPass } from 'three/examples/jsm/postprocessing/FilmPass.js';
+import { FXAAShader } from 'three/examples/jsm/shaders/FXAAShader.js';
+
 
 import Ammo from 'ammo.js';
 import Player from './player';
 import ShipCamera from './shipCamera'; 
 import GUI from './GUI.js'
+import { compute } from 'three/tsl';
 
-// =====================================================
-// Renderer / Scene Setup
-// =====================================================
-class Renderer3D {
-    constructor() {
-        this.scene = new THREE.Scene();
-        this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1e7);
-        this.renderer = new THREE.WebGLRenderer({ antialias: true });
-        this.renderer.setSize(window.innerWidth, window.innerHeight);
-        this.renderer.shadowMap.enabled = true;
-        this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-        document.body.appendChild(this.renderer.domElement);
 
-        this.addLights();
-    }
-
-    addLights() {
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
-        this.scene.add(ambientLight);
-
-        const directionalLight = new THREE.DirectionalLight(0xffffff, 1.5);
-        directionalLight.position.set(1737000 * 2, 1737000, 1737000);
-        directionalLight.castShadow = true;
-        this.scene.add(directionalLight);
-    }
-
-    render() {
-        this.renderer.render(this.scene, this.camera);
-    }
-}
 
 // =====================================================
 // Physics World
 // =====================================================
 class PhysicsWorld {
     constructor(AmmoLib) {
+        AmmoLib.ALLOW_MEMORY_GROWTH = true;
         const config = new AmmoLib.btDefaultCollisionConfiguration();
         const dispatcher = new AmmoLib.btCollisionDispatcher(config);
         const broadphase = new AmmoLib.btDbvtBroadphase();
@@ -68,6 +48,7 @@ class PhysicsWorld {
 // Tile Manager 
 // =====================================================
 const SCALE = 1 / 4;
+
 class TileManager {
     constructor(scene, physics, camera, renderer) {
         this.scene = scene;
@@ -76,8 +57,11 @@ class TileManager {
         this.renderer = renderer;
         this.tilesRenderer = null;
 
+        // Ammo objects for cleanup
         this.currentCollisionBody = null;
         this.currentCollisionMesh = null;
+        this.currentCollisionShape = null;
+        this.currentCollisionTriangleMesh = null;
         this.currentTile = null;
     }
 
@@ -103,7 +87,6 @@ class TileManager {
         this.tilesRenderer.setResolutionFromRenderer(this.camera, this.renderer);
         this.tilesRenderer.group.scale.set(SCALE, SCALE, SCALE);
 
-
         this.tilesRenderer.addEventListener('load-model', ({ scene: tileScene }) => {
             tileScene.traverse((c) => {
                 if (c.isMesh && c.material) {
@@ -120,7 +103,6 @@ class TileManager {
             this.tilesRenderer.group.position.copy(sphere.center).negate();
         });
 
-
         this.scene.add(this.tilesRenderer.group);
     }
 
@@ -129,61 +111,73 @@ class TileManager {
     }
 
     generateCollision(apolloMesh, AmmoLib) {
-    if (!this.tilesRenderer) return;
-    const tile = this._findClosestTile(apolloMesh);
-    if (!tile || tile === this.currentTile) return;
+        if (!this.tilesRenderer || !apolloMesh) return;
 
-    // Cleanup old collision
-    if (this.currentCollisionBody) {
-        this.physics.removeBody(this.currentCollisionBody);
-        AmmoLib.destroy(this.currentCollisionBody);
-        this.currentCollisionBody = null;
+        const tile = this._findClosestTile(apolloMesh);
+        if (!tile || tile === this.currentTile) return;
+
+        // --- Cleanup old collision objects ---
+        if (this.currentCollisionBody) {
+            this.physics.removeBody(this.currentCollisionBody);
+            AmmoLib.destroy(this.currentCollisionBody.getMotionState());
+            AmmoLib.destroy(this.currentCollisionBody);
+            this.currentCollisionBody = null;
+        }
+        if (this.currentCollisionShape) {
+            AmmoLib.destroy(this.currentCollisionShape);
+            this.currentCollisionShape = null;
+        }
+        if (this.currentCollisionTriangleMesh) {
+            AmmoLib.destroy(this.currentCollisionTriangleMesh);
+            this.currentCollisionTriangleMesh = null;
+        }
+        if (this.currentCollisionMesh) {
+            this.scene.remove(this.currentCollisionMesh);
+            this.currentCollisionMesh.geometry.dispose();
+            this.currentCollisionMesh.material.dispose();
+            this.currentCollisionMesh = null;
+        }
+
+        this.currentTile = tile;
+
+        // --- Get tile transform ---
+        const tilePos = new THREE.Vector3();
+        const tileQuat = new THREE.Quaternion();
+        const tileScale = new THREE.Vector3();
+        tile.matrixWorld.decompose(tilePos, tileQuat, tileScale);
+
+        // --- Clone and transform geometry ---
+        const geometry = tile.geometry.clone();
+        geometry.applyMatrix4(new THREE.Matrix4().compose(
+            new THREE.Vector3(0, 0, 0), tileQuat, tileScale
+        ));
+
+        // --- Create Ammo collision shape ---
+        const { shape, triangleMesh } = this._convertMeshToShape(geometry, AmmoLib);
+        this.currentCollisionShape = shape;
+        this.currentCollisionTriangleMesh = triangleMesh;
+
+        // --- Create rigid body ---
+        const transform = new AmmoLib.btTransform();
+        transform.setIdentity();
+        transform.setOrigin(new AmmoLib.btVector3(tilePos.x, tilePos.y, tilePos.z));
+
+        const motionState = new AmmoLib.btDefaultMotionState(transform);
+        this.currentCollisionBody = new AmmoLib.btRigidBody(
+            new AmmoLib.btRigidBodyConstructionInfo(0, motionState, shape, new AmmoLib.btVector3(0, 0, 0))
+        );
+
+        this.physics.addBody(this.currentCollisionBody);
+
+        // --- Optional wireframe for debug ---
+        this.currentCollisionMesh = new THREE.Mesh(
+            geometry.clone(),
+            new THREE.MeshBasicMaterial({ color: 0xff0000, wireframe: true, transparent: true, opacity: 0.5 })
+        );
+        this.currentCollisionMesh.position.copy(tilePos);
+        this.currentCollisionMesh.quaternion.copy(tileQuat);
+        this.scene.add(this.currentCollisionMesh);
     }
-    if (this.currentCollisionMesh) {
-        this.scene.remove(this.currentCollisionMesh);
-        this.currentCollisionMesh.geometry.dispose();
-        this.currentCollisionMesh.material.dispose();
-        this.currentCollisionMesh = null;
-    }
-
-    this.currentTile = tile;
-
-    // Get world transform (already includes group scale)
-    const tilePos = new THREE.Vector3();
-    const tileQuat = new THREE.Quaternion();
-    const tileScale = new THREE.Vector3();
-    tile.matrixWorld.decompose(tilePos, tileQuat, tileScale);
-
-    // Clone geometry and apply tile’s transform (position, rotation, scale)
-    const geometry = tile.geometry.clone();
-    geometry.applyMatrix4(new THREE.Matrix4().compose(
-        new THREE.Vector3(0, 0, 0), tileQuat, tileScale
-    ));
-
-    // Convert to Ammo collision shape
-    const shape = this._convertMeshToShape(geometry, AmmoLib);
-
-    // Create rigid body transform
-    const transform = new AmmoLib.btTransform();
-    transform.setIdentity();
-    transform.setOrigin(new AmmoLib.btVector3(tilePos.x, tilePos.y, tilePos.z));
-
-    const motionState = new AmmoLib.btDefaultMotionState(transform);
-    this.currentCollisionBody = new AmmoLib.btRigidBody(
-        new AmmoLib.btRigidBodyConstructionInfo(0, motionState, shape, new AmmoLib.btVector3(0, 0, 0))
-    );
-    this.physics.addBody(this.currentCollisionBody);
-
-    // Optional wireframe for debug
-    this.currentCollisionMesh = new THREE.Mesh(
-        geometry.clone(),
-        new THREE.MeshBasicMaterial({ color: 0xff0000, wireframe: true, transparent: true, opacity: 0.5 })
-    );
-    this.currentCollisionMesh.position.copy(tilePos);
-    this.currentCollisionMesh.quaternion.copy(tileQuat);
-    this.scene.add(this.currentCollisionMesh);
-}
- 
 
     _findClosestTile(apolloMesh) {
         const playerPos = apolloMesh.position;
@@ -201,6 +195,7 @@ class TileManager {
                 }
             }
         });
+
         return closestTile;
     }
 
@@ -225,26 +220,54 @@ class TileManager {
             }
         }
 
-        return new AmmoLib.btBvhTriangleMeshShape(triangleMesh, true, true);
+        const shape = new AmmoLib.btBvhTriangleMeshShape(triangleMesh, true, true);
+        return { shape, triangleMesh };
     }
 }
+
 
 // =====================================================
 // Main Application
 // =====================================================
 class App {
     constructor() {
+
+
+        this.moonMass = 7.3476309e22;
+        this.G = 6.67430e-11;
+        this.moonPos = new THREE.Vector3(0,0,0); 
+
         this.clock = new THREE.Clock();
 
         // Scene & Renderer
         this.scene = new THREE.Scene();
+        this.scene.background = new THREE.Color(0x000000);
         this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1e7);
-        this.renderer = new THREE.WebGLRenderer({ antialias: true });
+        this.renderer = new THREE.WebGLRenderer({ antialias: true, logarithmicDepthBuffer: true});
         this.renderer.setSize(window.innerWidth, window.innerHeight);
         this.renderer.shadowMap.enabled = true;
         this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        this.renderer.outputEncoding = THREE.sRGBEncoding;
         document.body.appendChild(this.renderer.domElement);
+
+        this.composer = new EffectComposer(this.renderer);
+        const renderPass = new RenderPass(this.scene, this.camera);
+        this.composer.addPass(renderPass);
+
+        // Bloom (glow)
+        const bloomPass = new UnrealBloomPass(
+            new THREE.Vector2(window.innerWidth, window.innerHeight),
+            1.2, // strength
+            0.4, // radius
+            0.85 // threshold
+        );
+        this.composer.addPass(bloomPass);
+        this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+
+        // Film (grain / flicker)
         
+
+        // Create composer with that render target
         this._addLights();
         
         // Physics
@@ -259,6 +282,13 @@ class App {
         // Custom Ship Camera
         this.shipCamera = new ShipCamera(this.camera, this.renderer.domElement, this.player);
         this.gui = new GUI(this.player);
+
+        window.addEventListener('resize', () => {
+            this.camera.aspect = window.innerWidth / window.innerHeight;
+            this.camera.updateProjectionMatrix();
+            this.renderer.setSize(window.innerWidth, window.innerHeight);
+            this.composer.setSize(window.innerWidth, window.innerHeight);
+        });
         
         this._init();
     }
@@ -269,11 +299,11 @@ class App {
     }
 
     _addLights() {
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.1);
         this.scene.add(ambientLight);
 
-        const directionalLight = new THREE.DirectionalLight(0xffffff, 1.5);
-        directionalLight.position.set(1737000 * 2, 1737000, 1737000);
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 2.5);
+        directionalLight.position.set(1737000, 1737000, 1737000);
         directionalLight.castShadow = true;
         this.scene.add(directionalLight);
     }
@@ -285,6 +315,7 @@ class App {
         // --- Player ---
         this.player.applyRotation();
         this.player.applyMovement(delta);
+        this.computeGravityForce();
         this.physics.step(delta);
         this.player.updateFromPhysics();
         this.gui.update();
@@ -297,11 +328,27 @@ class App {
         this.tiles.generateCollision(this.player.mesh, Ammo);
 
         // --- Render ---
-        this.renderer.render(this.scene, this.camera);
+        //this.renderer.render(this.scene, this.camera);
+        this.composer.render();
+    }
+
+    computeGravityForce() {
+        const pos = this.player.getPosition();
+        const r = pos.clone().sub(this.moonPos);
+        const distSq = r.lengthSq();
+
+        if (distSq < 1e-6) return;
+
+        //Newtons Law
+        const playerMass = this.player.mass;
+        const mu = this.G * this.moonMass;
+        const forceMag = mu * playerMass / distSq;
+
+        const dir = r.clone().normalize();
+        const force = dir.multiplyScalar(-forceMag);
+
+        this.player.applyForce(force);
     }
 }
 
-// =====================================================
-// Start
-// =====================================================
 new App();
