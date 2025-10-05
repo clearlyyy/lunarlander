@@ -1,0 +1,124 @@
+.navball-container {
+    margin: 0px;
+    padding: 0px;
+    width: 270px;
+    height: 175px;
+    background-color: #1f1f1f;
+    bottom: 0px;
+    left: 50%;
+    transform: translate(-50%, 0%);
+    border: 1px solid rgb(46, 46, 46);
+    display: flex;
+}
+
+.navball-container h3 {
+    color: white;
+    font-family:'Trebuchet MS', 'Lucida Sans Unicode', 'Lucida Grande', 'Lucida Sans', Arial, sans-serif;
+    font-size: 16px;
+}
+
+.container {
+    position: absolute;
+    bottom: 0px;
+    left: 50%;
+    margin: 0px;
+    padding: 0px;
+}
+
+.velocity {
+    margin-left: 10px; 
+}
+
+.velocity-container {
+    display: flex;
+    transform: translate(-50%, 0%);
+    background-color: #1f1f1f;
+    justify-content: center;
+    align-items: center;
+    margin: 0px;
+    padding: 0px;
+    height: 30px;
+    border-top-left-radius: 15px;
+    border-top-right-radius: 15px;
+    color: white;
+    font-family: 'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif; 
+    font-size: 15px;
+    border: 1px solid rgb(46, 46, 46);
+}
+
+.footer {
+    position: absolute;
+    color: white;
+    display: flex;
+    gap: 10px;
+    right: 8px;
+    bottom: 0px;
+    justify-content: center;
+    align-items: center;
+    font-family: Arial, Helvetica, sans-serif; 
+    font-size: 12px;
+    height: 28px;
+    
+}
+
+.link {
+    display: flex;
+    align-items: center;
+    color: white;
+    text-decoration: none;
+    gap: 5px;
+}
+
+#throttle-container {
+    align-self: center;
+    width: 30px;           
+    height: 150px;        
+    background: rgba(0,0,0,0.5); 
+    background-image: url('./textures/throttle.png');
+    border: 2px solid #494949;
+    display: flex;
+    overflow: hidden;
+    margin-left: 12px;
+    padding: 0px;
+}
+
+#throttle-bar {
+    position: absolute;
+    width: 30px;
+    height: 10px;
+    border: 1px solid #494949;
+    left: 13px;
+    background: linear-gradient(to top, #4e4e4e, #3a3a3a);
+    transition: top 0.05s linear;
+}
+
+#descent-container {
+    position: absolute;
+    align-self: center;
+    width: 30px;           
+    height: 150px;        
+    background: rgba(0,0,0,0.5); 
+    background-image: url('./textures/descent.png');
+    border: 2px solid #494949;
+    overflow: hidden;
+    right: 12px;
+    padding: 0px;
+}
+
+#descent-bar {
+    position: absolute;
+    width: 30px;
+    height: 10px;
+    border: 1px solid #494949;
+    right: -1px;
+    background: linear-gradient(to top, #4e4e4e, #3a3a3a);
+    transition: top 0.05s linear;
+}
+
+#navballCanvas {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  filter: drop-shadow(0px 0px 20px rgba(0, 0, 0, 0.6));
+}

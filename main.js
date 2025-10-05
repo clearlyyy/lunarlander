@@ -125,7 +125,7 @@ class TileManager {
         const tile = this._findClosestTile(apolloMesh);
         if (!tile || tile === this.currentTile) return;
 
-        // --- Cleanup old collision objects ---
+        // Cleanup old collision objects 
         if (this.currentCollisionBody) {
             this.physics.removeBody(this.currentCollisionBody);
             AmmoLib.destroy(this.currentCollisionBody.getMotionState());
@@ -149,24 +149,24 @@ class TileManager {
 
         this.currentTile = tile;
 
-        // --- Get tile transform ---
+        // Get tile transform ---
         const tilePos = new THREE.Vector3();
         const tileQuat = new THREE.Quaternion();
         const tileScale = new THREE.Vector3();
         tile.matrixWorld.decompose(tilePos, tileQuat, tileScale);
 
-        // --- Clone and transform geometry ---
+        // Clone and transform geometry 
         const geometry = tile.geometry.clone();
         geometry.applyMatrix4(new THREE.Matrix4().compose(
             new THREE.Vector3(0, 0, 0), tileQuat, tileScale
         ));
 
-        // --- Create Ammo collision shape ---
+        // Create Ammo collision shape 
         const { shape, triangleMesh } = this._convertMeshToShape(geometry, AmmoLib);
         this.currentCollisionShape = shape;
         this.currentCollisionTriangleMesh = triangleMesh;
 
-        // --- Create rigid body ---
+        // Create rigid body 
         const transform = new AmmoLib.btTransform();
         transform.setIdentity();
         transform.setOrigin(new AmmoLib.btVector3(tilePos.x, tilePos.y, tilePos.z));
@@ -178,14 +178,14 @@ class TileManager {
 
         this.physics.addBody(this.currentCollisionBody);
 
-        // --- Optional wireframe for debug ---
+        // Debug wireframe mesh 
         this.currentCollisionMesh = new THREE.Mesh(
             geometry.clone(),
             new THREE.MeshBasicMaterial({ color: 0xff0000, wireframe: true, transparent: true, opacity: 0.5 })
         );
         this.currentCollisionMesh.position.copy(tilePos);
         this.currentCollisionMesh.quaternion.copy(tileQuat);
-        //this.scene.add(this.currentCollisionMesh);
+        this.scene.add(this.currentCollisionMesh);
     }
 
     _findClosestTile(apolloMesh) {
@@ -219,6 +219,9 @@ class TileManager {
                 const v1 = new AmmoLib.btVector3(vertices[indices[i + 1] * 3], vertices[indices[i + 1] * 3 + 1], vertices[indices[i + 1] * 3 + 2]);
                 const v2 = new AmmoLib.btVector3(vertices[indices[i + 2] * 3], vertices[indices[i + 2] * 3 + 1], vertices[indices[i + 2] * 3 + 2]);
                 triangleMesh.addTriangle(v0, v1, v2, true);
+                AmmoLib.destroy(v0);
+                AmmoLib.destroy(v1);
+                AmmoLib.destroy(v2);
             }
         } else {
             for (let i = 0; i < vertices.length; i += 9) {
@@ -226,12 +229,15 @@ class TileManager {
                 const v1 = new AmmoLib.btVector3(vertices[i + 3], vertices[i + 4], vertices[i + 5]);
                 const v2 = new AmmoLib.btVector3(vertices[i + 6], vertices[i + 7], vertices[i + 8]);
                 triangleMesh.addTriangle(v0, v1, v2, true);
+                AmmoLib.destroy(v0);
+                AmmoLib.destroy(v1);
+                AmmoLib.destroy(v2);
             }
         }
 
         const shape = new AmmoLib.btBvhTriangleMeshShape(triangleMesh, true, true);
         return { shape, triangleMesh };
-    }
+    } 
 }
 
 
@@ -252,6 +258,7 @@ class App {
         this.scene = new THREE.Scene();
         this.scene.background = new THREE.Color(0x000000);
         this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 5, 1e6);
+
         this.renderer = new THREE.WebGLRenderer({ antialias: true, depth: true});
         this.renderer.setSize(window.innerWidth, window.innerHeight);
         this.renderer.shadowMap.enabled = true;
@@ -260,6 +267,16 @@ class App {
         this.renderer.toneMappingExposure = 1.0;
         this.renderer.outputEncoding = THREE.sRGBEncoding;
         document.body.appendChild(this.renderer.domElement);
+
+        // --- HUD Renderer ---
+        this.hudRenderer = new THREE.WebGLRenderer({ alpha: true });
+        this.hudRenderer.setSize(window.innerWidth, window.innerHeight);
+        this.hudRenderer.domElement.style.position = 'absolute';
+        this.hudRenderer.domElement.style.top = '0';
+        this.hudRenderer.domElement.style.left = '0';
+        this.hudRenderer.domElement.style.pointerEvents = 'none'; // allow UI clicks through
+        this.hudRenderer.domElement.style.zIndex = '1'; // render above 3D world
+        document.body.appendChild(this.hudRenderer.domElement);
 
         // --- HUD Scene & Camera ---
         this.hudScene = new THREE.Scene();
@@ -326,12 +343,16 @@ class App {
             this.camera.aspect = window.innerWidth / window.innerHeight;
             this.camera.updateProjectionMatrix();
             this.renderer.setSize(window.innerWidth, window.innerHeight);
+            this.hudRenderer.setSize(window.innerWidth, window.innerHeight);
             this.composer.setSize(window.innerWidth, window.innerHeight);
             this.hudCamera.left = -window.innerWidth / 2;
             this.hudCamera.right = window.innerWidth / 2;
             this.hudCamera.top = window.innerHeight / 2;
             this.hudCamera.bottom = -window.innerHeight / 2;
             this.hudCamera.updateProjectionMatrix();
+            this.navBall.mesh.position.set(0, -window.innerHeight/2 + 90, 0); // HUD position
+            this.navBall.shadow.position.set(0, this.navBallmesh.position.y - 2, -5); // slightly behind the navball
+            
         });
         
         this._init();
@@ -391,9 +412,9 @@ class App {
         //this.renderer.render(this.scene, this.camera);
         this.renderer.autoClear = true;
         this.composer.render();
-        this.renderer.autoClear = false;
-        this.renderer.clearDepth();
-        this.renderer.render(this.hudScene, this.hudCamera);
+        this.hudRenderer.autoClear = false;
+        this.hudRenderer.clearDepth();
+        this.hudRenderer.render(this.hudScene, this.hudCamera);
     }
 
     _updateShadowLight() {

@@ -7,8 +7,35 @@
       body, html { margin: 0; padding: 0; overflow: hidden; height: 100%; }
       #threeCanvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
     </style>
+    <link rel="stylesheet" href="ui.css">
   </head>
   <body>
+    <div class="container">
+      <div class="velocity-container">
+        <h3 class="velocity-text">Velocity: </h3>
+        <h3 class="velocity" id="velocity">18.3m/s</h3>
+      </div>
+      <div class="navball-container">
+        <div id="throttle-container">
+          <div id="throttle-bar"></div>
+        </div>
+        <div id="descent-container">
+          <div id="descent-bar"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <p>© 2025 MoonLander</p>
+      <p>Made by Clearlyy</p>
+      <a class="link" href="https://github.com/clearlyyy/moonlander" target="_blank">
+          <img src="./textures/github-mark-white.svg" 
+               alt="GitHub" 
+               style="width:16px; height:16px;">
+          <p>moonlander</p>
+      </a>
+    </div>
+
     <canvas id="threeCanvas"></canvas>
     <script type="module" src="/main.js"></script>
   </body>

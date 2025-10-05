@@ -14,7 +14,11 @@ export default class Player {
     constructor(scene, physics, camera, domElement, AmmoLib) {
         this.AmmoLib = AmmoLib;
 
-        
+        this.velocityText = document.getElementById("velocity");
+        this.throttleContainer = document.getElementById("throttle-container");
+        this.throttleIndicator = document.getElementById("throttle-bar");
+        const descentContainer = document.getElementById("descent-container");
+        const descentIndicator = document.getElementById("descent-bar");
 
         const gltfPath = './assets/models/apollo_craft/apollo_lander.glb';
 
@@ -148,15 +152,20 @@ export default class Player {
             this.debugMesh.position.set(origin.x(), origin.y(), origin.z());
             this.debugMesh.quaternion.set(rotation.x(), rotation.y(), rotation.z(), rotation.w());
         }
+
+        const vel = this.body.getLinearVelocity();
+        const velocity = new THREE.Vector3(vel.x(), vel.y(), vel.z());
+        const speed = velocity.length();
+        this.velocityText.innerText = speed.toFixed(2) + " m/s";
+
     }
-    
     applyMovement(dt) {
 
         // Apply Gravity
         //this.body.applyCentralForce(new this.AmmoLib.btVector3(0, this.gravity, 0));
         //const mass = 15000; // Mass of Apollo Lander
 
-        if (this.movement.up) { this.throttle = 10000000 } else { this.throttle = 0; }
+        if (this.movement.up) { this.throttle = 1000000 } else { this.throttle = 0; }
         const vel = this.body.getLinearVelocity();
         //console.log(vel.x(), vel.y(), vel.z());
 
@@ -183,7 +192,39 @@ export default class Player {
             this.engineSound.volume = 0.1; // keep engine "warm" to avoid click
         }
         if (this.plume) this.plume.update(dt, this.throttle);
+
+        this.updateUIElements();
     }
+
+    updateUIElements(dt) {
+        if (!this.throttleContainer || !this.throttleIndicator) return;
+
+        // --- Throttle Bar ---
+        const throttle = this.throttle;
+        const maxThrottle = 1000000;
+        const tNorm = Math.min(throttle / maxThrottle, 1);
+        const throttleTop = this.throttleContainer.clientHeight - this.throttleIndicator.clientHeight - tNorm * (this.throttleContainer.clientHeight - this.throttleIndicator.clientHeight) + 10;
+        this.throttleIndicator.style.top = `${throttleTop}px`;
+
+        // --- Descent Bar ---
+        const descentContainer = document.getElementById("descent-container");
+        const descentIndicator = document.getElementById("descent-bar");
+        if (!descentContainer || !descentIndicator) return;
+
+        const moonCenter = new THREE.Vector3(0,0,0);
+        const pos = this.getPosition();
+        const downVec = moonCenter.clone().sub(pos).normalize();
+
+        const vel = this.getVelocity();
+        const descentSpeed = vel.dot(downVec);
+
+        const maxDescentSpeed = 50; // tweak to taste
+        const t = Math.min(descentSpeed / maxDescentSpeed, 1);
+
+        const top = descentContainer.clientHeight - descentIndicator.clientHeight - t * (descentContainer.clientHeight - descentIndicator.clientHeight);
+        descentIndicator.style.top = `${top}px`;
+    }
+ 
 
     getVelocity() {
         const vel = this.body.getLinearVelocity();

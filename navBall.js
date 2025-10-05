@@ -18,11 +18,38 @@ export default class NavBall {
         tex.magFilter = THREE.LinearFilter;
         tex.anisotropy = this.renderer?.capabilities.getMaxAnisotropy() || 16;
         this.mesh = new THREE.Mesh(geo, mat);
-        this.mesh.position.set(0, -400, 0); // HUD position
+        this.mesh.position.set(0, -window.innerHeight/2 + 90, 0); // HUD position
         this.mesh.renderOrder = 999;
         this.mesh.frustumCulled = false;
         hudScene.add(this.mesh);
-        
+
+        // --- Soft shadow behind navball ---
+        const shadowGeo = new THREE.PlaneGeometry(radius * 2.7, radius * 2.7);
+
+        // make a radial gradient texture for blur
+        const shadowCanvas = document.createElement('canvas');
+        shadowCanvas.width = shadowCanvas.height = 256;
+        const ctx = shadowCanvas.getContext('2d');
+        const gradient = ctx.createRadialGradient(128, 128, 30, 128, 128, 120);
+        gradient.addColorStop(0, 'rgba(0, 0, 0, 0.65)');
+        gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, 256, 256);
+
+        const shadowTex = new THREE.CanvasTexture(shadowCanvas);
+        const shadowMat = new THREE.MeshBasicMaterial({
+            map: shadowTex,
+            transparent: true,
+            opacity: 1.0,
+            depthWrite: false
+        });
+
+        this.shadow = new THREE.Mesh(shadowGeo, shadowMat);
+        this.shadow.position.set(0, this.mesh.position.y - 2, -5); // slightly behind the navball
+        this.shadow.renderOrder = 998; // render before navball
+        this.shadow.frustumCulled = false;
+        hudScene.add(this.shadow);
+
         // Prograde Marker 
         const markerGeo = new THREE.SphereGeometry(8, 16, 16);
         const markerMat = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
