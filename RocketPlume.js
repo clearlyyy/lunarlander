@@ -83,14 +83,14 @@ export default class RocketPlume {
       if (this.renderer && typeof this.renderer.update === "function") {
         this.renderer.update(dt);
       }
-  
+
       // throttle-controlled emission
       if (this.system.emissionOverTime && typeof this.system.emissionOverTime.setValue === "function") {
         this.system.emissionOverTime.setValue(throttle > 0 ? 400 : 0);
       } else if (this.system.emissionOverTime && 'value' in this.system.emissionOverTime) {
         this.system.emissionOverTime.value = throttle > 0 ? 400 : 0;
       }
-    }
+  }
 
   _makeSpriteTexture() {
     const size = 64;

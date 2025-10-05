@@ -6,15 +6,17 @@ import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPa
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import { FilmPass } from 'three/examples/jsm/postprocessing/FilmPass.js';
 import { FXAAShader } from 'three/examples/jsm/shaders/FXAAShader.js';
-
+import { SSAOPass } from 'three/examples/jsm/postprocessing/SSAOPass.js';
+import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
+import { ACESFilmicToneMappingShader } from 'three/examples/jsm/Addons.js';
+import { VignetteShader } from 'three/examples/jsm/Addons.js';
+import { N8AOPass } from 'n8ao';
 
 import Ammo from 'ammo.js';
 import Player from './player';
 import ShipCamera from './shipCamera'; 
 import GUI from './GUI.js'
-import { compute } from 'three/tsl';
-
-
+import NavBall from './navBall.js';
 
 // =====================================================
 // Physics World
@@ -90,9 +92,16 @@ class TileManager {
         this.tilesRenderer.addEventListener('load-model', ({ scene: tileScene }) => {
             tileScene.traverse((c) => {
                 if (c.isMesh && c.material) {
-                    c.material.needsUpdate = true;
+                    const oldMat = c.material;
+                    c.material = new THREE.MeshStandardMaterial({
+                        map: oldMat.map || null, // use the original texture
+                        roughness: 0.9,
+                        metalness: 0,
+                    });
                     c.castShadow = true;
                     c.receiveShadow = true;
+                    c.geometry.computeVertexNormals();
+                    oldMat.dispose();
                 }
             });
         });
@@ -176,7 +185,7 @@ class TileManager {
         );
         this.currentCollisionMesh.position.copy(tilePos);
         this.currentCollisionMesh.quaternion.copy(tileQuat);
-        this.scene.add(this.currentCollisionMesh);
+        //this.scene.add(this.currentCollisionMesh);
     }
 
     _findClosestTile(apolloMesh) {
@@ -238,34 +247,61 @@ class App {
         this.moonPos = new THREE.Vector3(0,0,0); 
 
         this.clock = new THREE.Clock();
-
+        
         // Scene & Renderer
         this.scene = new THREE.Scene();
         this.scene.background = new THREE.Color(0x000000);
-        this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1e7);
-        this.renderer = new THREE.WebGLRenderer({ antialias: true, logarithmicDepthBuffer: true});
+        this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 5, 1e6);
+        this.renderer = new THREE.WebGLRenderer({ antialias: true, depth: true});
         this.renderer.setSize(window.innerWidth, window.innerHeight);
         this.renderer.shadowMap.enabled = true;
         this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        this.renderer.toneMappingExposure = 1.0;
         this.renderer.outputEncoding = THREE.sRGBEncoding;
         document.body.appendChild(this.renderer.domElement);
 
+        // --- HUD Scene & Camera ---
+        this.hudScene = new THREE.Scene();
+        this.hudCamera = new THREE.OrthographicCamera(
+            -window.innerWidth/2, window.innerWidth/2,
+             window.innerHeight/2, -window.innerHeight/2,
+            -1000, 1000
+        );
+        this.hudCamera.position.z = 10;
+
+        
         this.composer = new EffectComposer(this.renderer);
         const renderPass = new RenderPass(this.scene, this.camera);
         this.composer.addPass(renderPass);
+        
+        const n8aopass = new N8AOPass(this.scene, this.camera, this.width, this.height);
+        n8aopass.configuration.aoRadius = 5.0;
+        n8aopass.configuration.distanceFalloff = 3;
+        n8aopass.configuration.intensity = 2.0;
+        n8aopass.configuration.color = new THREE.Color(0, 0, 0);
+        this.composer.addPass(n8aopass); 
 
-        // Bloom (glow)
+        const filmPass = new FilmPass(
+            0.25, false 
+        );
+        this.composer.addPass(filmPass);
+
         const bloomPass = new UnrealBloomPass(
             new THREE.Vector2(window.innerWidth, window.innerHeight),
-            1.2, // strength
+            1.0, // strength
             0.4, // radius
             0.85 // threshold
         );
         this.composer.addPass(bloomPass);
-        this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
 
-        // Film (grain / flicker)
-        
+        const toneMapping = new ShaderPass(ACESFilmicToneMappingShader);
+        this.composer.addPass(toneMapping);
+        const vignette = new ShaderPass(VignetteShader);
+        this.composer.addPass(vignette);
+
+        const outputPass = new OutputPass();
+        this.composer.addPass(outputPass);
 
         // Create composer with that render target
         this._addLights();
@@ -278,16 +314,24 @@ class App {
         
         // Player
         this.player = new Player(this.scene, this.physics, this.camera, this.renderer.domElement, Ammo);
-        
-        // Custom Ship Camera
+
+        this.navBall = new NavBall(this.player, this.hudScene, 80, 'textures/navball.png');
+
+        // --- NavBall (HUD) ---
         this.shipCamera = new ShipCamera(this.camera, this.renderer.domElement, this.player);
         this.gui = new GUI(this.player);
+
 
         window.addEventListener('resize', () => {
             this.camera.aspect = window.innerWidth / window.innerHeight;
             this.camera.updateProjectionMatrix();
             this.renderer.setSize(window.innerWidth, window.innerHeight);
             this.composer.setSize(window.innerWidth, window.innerHeight);
+            this.hudCamera.left = -window.innerWidth / 2;
+            this.hudCamera.right = window.innerWidth / 2;
+            this.hudCamera.top = window.innerHeight / 2;
+            this.hudCamera.bottom = -window.innerHeight / 2;
+            this.hudCamera.updateProjectionMatrix();
         });
         
         this._init();
@@ -299,14 +343,25 @@ class App {
     }
 
     _addLights() {
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.1);
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.05);
         this.scene.add(ambientLight);
 
-        const directionalLight = new THREE.DirectionalLight(0xffffff, 2.5);
-        directionalLight.position.set(1737000, 1737000, 1737000);
-        directionalLight.castShadow = true;
-        this.scene.add(directionalLight);
-    }
+        this.directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+        this.directionalLight.castShadow = true;
+
+        this.directionalLight.shadow.mapSize.set(2048, 2048);
+        const cam = this.directionalLight.shadow.camera;
+        cam.near = 0.1;
+        cam.far = 10000;
+        cam.left = -200;
+        cam.right = 200;
+        cam.top = 200;
+        cam.bottom = -200;
+
+        this.directionalLight.shadow.bias = -0.0002;
+
+        this.scene.add(this.directionalLight);
+    } 
 
     animate() {
         requestAnimationFrame(() => this.animate());
@@ -318,21 +373,54 @@ class App {
         this.computeGravityForce();
         this.physics.step(delta);
         this.player.updateFromPhysics();
+        if (!this.player.body) return;
         this.gui.update();
 
+        this.navBall.update();
         // --- Camera ---
         this.shipCamera.update();
+        this._updateShadowLight();
 
         // --- Tiles ---
         this.tiles.update();
         this.tiles.generateCollision(this.player.mesh, Ammo);
 
+
+
         // --- Render ---
         //this.renderer.render(this.scene, this.camera);
+        this.renderer.autoClear = true;
         this.composer.render();
+        this.renderer.autoClear = false;
+        this.renderer.clearDepth();
+        this.renderer.render(this.hudScene, this.hudCamera);
+    }
+
+    _updateShadowLight() {
+        if (!this.player || !this.directionalLight) return;
+
+        // Player world position
+        const playerPos = this.player.getPosition();
+
+        // Direction of sunlight 
+        const lightDir = new THREE.Vector3(-1, -2, -1).normalize();
+
+        const lightDistance = 500; // controls how far light sits
+        const lightPos = playerPos.clone().addScaledVector(lightDir, -lightDistance);
+
+        this.directionalLight.position.copy(lightPos);
+        this.directionalLight.target.position.copy(playerPos);
+        this.directionalLight.target.updateMatrixWorld();
+
+        // Move shadow camera with the player
+        const shadowCam = this.directionalLight.shadow.camera;
+        shadowCam.position.copy(lightPos);
+        shadowCam.lookAt(playerPos);
+        shadowCam.updateProjectionMatrix();
     }
 
     computeGravityForce() {
+        if (!this.player.body) return;
         const pos = this.player.getPosition();
         const r = pos.clone().sub(this.moonPos);
         const distSq = r.lengthSq();
