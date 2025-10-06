@@ -17,6 +17,7 @@ import Player from './player';
 import ShipCamera from './shipCamera'; 
 import GUI from './GUI.js'
 import NavBall from './navBall.js';
+import Explosion from './Explosion.js';
 
 // =====================================================
 // Physics World
@@ -32,7 +33,7 @@ class PhysicsWorld {
     }
 
     step(delta) {
-        this.world.stepSimulation(delta, 10, 1/240);
+        this.world.stepSimulation(delta, 10, 1/60);
     }
 
     addBody(body) {
@@ -241,24 +242,56 @@ class TileManager {
 }
 
 
+const tips = ["Focus on the NavBall, it makes maneuvers a lot simpler.", 
+              "Try Timewarping to speed up time with Period and Comma",
+              "This game uses newtonian physics, so you can park yourself into an orbit",
+              "The NavBall has a Prograde and Retrograde marker, understanding these are essential to flying a spacecraft.",
+              "Use the Descent Gauge on the bottom of the screen to determine if your vertical speed relative to surface is good.",
+              "You can get finer control with the throttle using Shift and CTRL",
+              "The Apollo 11 Lunar module weights 15 tons fully fueled.",
+              "The most efficient way to slow yourself for landing is performing a suicide burn. To do this, you wait till the very last second to fire your engines, slowing to 0 m/s as you land.",
+              "Try aligning your navball in one of the four cardinal directions, this can make rotating in the intended direction easier.",
+              "For your sake, velocities of 25 m/s and higher are considered fatal!",
+              ]
+
 // =====================================================
 // Main Application
 // =====================================================
 class App {
     constructor() {
 
+        this.useRealValues = false;
+        this.hasDied = false;
 
-        this.moonMass = 7.3476309e22;
+        if (this.useRealValues) {
+            this.moonMass = 4.6e21;
+        }
+        else {
+            this.moonMass = 7.32e22;
+        }
         this.G = 6.67430e-11;
         this.moonPos = new THREE.Vector3(0,0,0); 
+        this.timeWarp = 1;
+        this.keysDown = {};
+        this.triangles = [];
+        for (let i = 1; i <= 7; i++) {
+            const t = document.getElementById(`t${i}`);
+            this.triangles.push(t);
+            t.addEventListener('click', () => {
+                this.timeWarp = i;
+                this.updateUIElements();
+            });
+        }
+        this.updateUIElements();
 
         this.clock = new THREE.Clock();
+        
         
         // Scene & Renderer
         this.scene = new THREE.Scene();
         this.scene.background = new THREE.Color(0x000000);
         this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 5, 1e6);
-
+        
         this.renderer = new THREE.WebGLRenderer({ antialias: true, depth: true});
         this.renderer.setSize(window.innerWidth, window.innerHeight);
         this.renderer.shadowMap.enabled = true;
@@ -267,7 +300,7 @@ class App {
         this.renderer.toneMappingExposure = 1.0;
         this.renderer.outputEncoding = THREE.sRGBEncoding;
         document.body.appendChild(this.renderer.domElement);
-
+        
         // --- HUD Renderer ---
         this.hudRenderer = new THREE.WebGLRenderer({ alpha: true });
         this.hudRenderer.setSize(window.innerWidth, window.innerHeight);
@@ -277,16 +310,16 @@ class App {
         this.hudRenderer.domElement.style.pointerEvents = 'none'; // allow UI clicks through
         this.hudRenderer.domElement.style.zIndex = '1'; // render above 3D world
         document.body.appendChild(this.hudRenderer.domElement);
-
+        
         // --- HUD Scene & Camera ---
         this.hudScene = new THREE.Scene();
         this.hudCamera = new THREE.OrthographicCamera(
             -window.innerWidth/2, window.innerWidth/2,
-             window.innerHeight/2, -window.innerHeight/2,
+            window.innerHeight/2, -window.innerHeight/2,
             -1000, 1000
         );
         this.hudCamera.position.z = 10;
-
+        
         
         this.composer = new EffectComposer(this.renderer);
         const renderPass = new RenderPass(this.scene, this.camera);
@@ -298,12 +331,11 @@ class App {
         n8aopass.configuration.intensity = 2.0;
         n8aopass.configuration.color = new THREE.Color(0, 0, 0);
         this.composer.addPass(n8aopass); 
-
-        const filmPass = new FilmPass(
+        const filmPass = new FilmPass( 
             0.25, false 
         );
         this.composer.addPass(filmPass);
-
+        
         const bloomPass = new UnrealBloomPass(
             new THREE.Vector2(window.innerWidth, window.innerHeight),
             1.0, // strength
@@ -311,15 +343,15 @@ class App {
             0.85 // threshold
         );
         this.composer.addPass(bloomPass);
-
+        
         const toneMapping = new ShaderPass(ACESFilmicToneMappingShader);
         this.composer.addPass(toneMapping);
         const vignette = new ShaderPass(VignetteShader);
         this.composer.addPass(vignette);
-
+        
         const outputPass = new OutputPass();
         this.composer.addPass(outputPass);
-
+        
         // Create composer with that render target
         this._addLights();
         
@@ -330,15 +362,21 @@ class App {
         this.tiles = new TileManager(this.scene, this.physics, this.camera, this.renderer);
         
         // Player
-        this.player = new Player(this.scene, this.physics, this.camera, this.renderer.domElement, Ammo);
-
+        this.player = new Player(this.scene, this.physics, this.camera, this.renderer.domElement, Ammo, this.useRealValues, this.hasDied);
+        
         this.navBall = new NavBall(this.player, this.hudScene, 80, 'textures/navball.png');
-
+        
         // --- NavBall (HUD) ---
         this.shipCamera = new ShipCamera(this.camera, this.renderer.domElement, this.player);
         this.gui = new GUI(this.player);
+        
+        this.explosion = new Explosion({scene: this.scene});
 
-
+        this.ambientSound = new Audio('sounds/ambient.mp3');
+        this.ambientSound.loop = true;
+        this.ambientSound.volume = 0.05;
+        this.ambientSound.play();
+        
         window.addEventListener('resize', () => {
             this.camera.aspect = window.innerWidth / window.innerHeight;
             this.camera.updateProjectionMatrix();
@@ -352,10 +390,10 @@ class App {
             this.hudCamera.updateProjectionMatrix();
             this.navBall.mesh.position.set(0, -window.innerHeight/2 + 90, 0); // HUD position
             this.navBall.shadow.position.set(0, this.navBallmesh.position.y - 2, -5); // slightly behind the navball
-            
         });
         
         this._init();
+        this._bindEvents();
     }
 
     async _init() {
@@ -392,9 +430,14 @@ class App {
         this.player.applyRotation();
         this.player.applyMovement(delta);
         this.computeGravityForce();
-        this.physics.step(delta);
+
+        this.physics.step(delta*this.timeWarp);
         this.player.updateFromPhysics();
+        this.checkCollisions();
+        this.player.updatePreviousVelocity();
         if (!this.player.body) return;
+
+        this.explosion.update(delta);
         this.gui.update();
 
         this.navBall.update();
@@ -406,8 +449,6 @@ class App {
         this.tiles.update();
         this.tiles.generateCollision(this.player.mesh, Ammo);
 
-
-
         // --- Render ---
         //this.renderer.render(this.scene, this.camera);
         this.renderer.autoClear = true;
@@ -415,7 +456,44 @@ class App {
         this.hudRenderer.autoClear = false;
         this.hudRenderer.clearDepth();
         this.hudRenderer.render(this.hudScene, this.hudCamera);
+
     }
+
+    updateUIElements() {
+        this.triangles.forEach((t, index) => {
+            if (index + 1 <= this.timeWarp) {
+                t.classList.add('active');
+            } else {
+                t.classList.remove('active');
+            }
+        })
+    }
+
+    _bindEvents() {
+        document.addEventListener('keydown', (event) => {
+            if (!this.keysDown[event.code]) {
+                this.keysDown[event.code] = true;
+                if (event.code == 'Period' && this.timeWarp < 7) {
+                    this.timeWarp++;
+                    this.updateUIElements();
+                }
+                if (event.code == 'Comma' && this.timeWarp > 1) {
+                    this.timeWarp--;
+                    this.updateUIElements();
+                }
+            }
+        });
+
+        // Reset the key when released so it can trigger again
+        document.addEventListener('keyup', (event) => {
+            this.keysDown[event.code] = false;
+        });
+
+        document.getElementById("tryagain-button").addEventListener('click', function(event) {
+            this.Start()
+        }.bind(this));
+    }
+ 
 
     _updateShadowLight() {
         if (!this.player || !this.directionalLight) return;
@@ -458,6 +536,80 @@ class App {
 
         this.player.applyForce(force);
     }
+
+    checkCollisions() {
+        if (this.hasDied) return;   
+        const world = this.physics.world;
+        const playerBody = this.player.body;
+        let isCollidingThisFrame = false;   
+        const dispatcher = world.getDispatcher();
+        const numManifolds = dispatcher.getNumManifolds();  
+        for (let i = 0; i < numManifolds; i++) {
+            const manifold = dispatcher.getManifoldByIndexInternal(i);
+            const body0 = manifold.getBody0();
+            const body1 = manifold.getBody1();
+
+            if (body0.ptr === playerBody.ptr || body1.ptr === playerBody.ptr) {
+                const numContacts = manifold.getNumContacts();
+                for (let j = 0; j < numContacts; j++) {
+                    const pt = manifold.getContactPoint(j);
+                    if (pt.getDistance() < 0) { 
+                        isCollidingThisFrame = true;
+                    
+                        // Get contact normal: Ammo returns normal pointing from body0 -> body1
+                        const normal = pt.get_m_normalWorldOnB();
+                        const normalVec = new THREE.Vector3(normal.x(), normal.y(), normal.z());
+                    
+                        // Project previous velocity along contact normal
+                        const impactVel = -this.player.prevVelocity.dot(normalVec);
+                        const speed = Math.max(impactVel, 0); // avoid negative
+                    
+                        if (!this.player.hasCollided) {
+                            if (speed > 25) { // death threshold
+                                console.log("YOU DIED! Collision speed:", speed.toFixed(2), "m/s");
+                                this.Died(speed.toFixed(2));
+                            } else {
+                                console.log("Safe Landing", speed.toFixed(2), "m/s");
+                            }
+                        
+                            this.player.hasCollided = true;
+                        }
+                    }
+                }
+            }
+        }   
+        if (!isCollidingThisFrame) {
+            this.player.hasCollided = false;
+        }
+    }   
+
+
+    Died(vel) {
+        if (!this.hasDied) {
+            this.hasDied = true;
+            this.player.hasDied = true;
+        }
+        if (this.hasDied) {
+            this.explosion.explode(this.player.mesh.position);
+            console.log("ding");
+            this.player.hideAndStop();
+            this.player.throttle = 0;
+            const explosionSound = new Audio('./sounds/explosion_somewhere_far.mp3');
+            explosionSound.play();
+            document.getElementById("death-velocity").innerText = vel;
+            document.getElementById("death-screen").classList.add('active');
+            document.getElementById("tip").innerText = tips[Math.floor(Math.random() * tips.length)];
+        }
+    }
+
+    Start() {
+        this.hasDied = false;
+        this.player.hasDied = false;
+        document.getElementById("death-screen").classList.remove('active');
+        this.player.showAndStart();
+
+    }
+
 }
 
 new App();

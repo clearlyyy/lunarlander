@@ -11,7 +11,10 @@ import RocketPlume from './RocketPlume';
 const START_POS = new Ammo.btVector3(412174, 139200, 0);
 
 export default class Player {
-    constructor(scene, physics, camera, domElement, AmmoLib) {
+    constructor(scene, physics, camera, domElement, AmmoLib, useRealValues, hasDied) {
+        this.hasDied = hasDied;
+        this.useRealValues = useRealValues;
+
         this.AmmoLib = AmmoLib;
 
         this.velocityText = document.getElementById("velocity");
@@ -19,6 +22,9 @@ export default class Player {
         this.throttleIndicator = document.getElementById("throttle-bar");
         const descentContainer = document.getElementById("descent-container");
         const descentIndicator = document.getElementById("descent-bar");
+
+        this.hasCollided = false;
+        this.maxThrottle = 70000; // In Kilo Newtons 
 
         const gltfPath = './assets/models/apollo_craft/apollo_lander.glb';
 
@@ -36,18 +42,17 @@ export default class Player {
 
             scene.add(object);
             this.mesh = object;
-                this.mesh.castShadow = true;
-
-                this.plume = new RocketPlume({scene: scene});
-                this.mesh.add(this.plume.container);
-                this.plume.container.position.set(0,-2.3,0);
+            this.mesh.castShadow = true;
+            this.plume = new RocketPlume({scene: scene});
+            this.mesh.add(this.plume.container);
+            this.plume.container.position.set(0,-2.3,0);
         });
         
         // Physics body
         this.gravity = -9.62;
         this.angularVelocity = new this.AmmoLib.btVector3(0,0,0);
         this.throttle = 0;
-        this.mass = 15000; // IN KG
+        this.mass = 10000; // IN KG
         
         // --- COMPOUND SHAPE ---
         const compoundShape = new AmmoLib.btCompoundShape();
@@ -86,9 +91,10 @@ export default class Player {
         this.body.setRollingFriction(0.0);
         this.body.setRestitution(0.0);
         this.body.setSleepingThresholds(0, 0);
-
+        
         physics.addBody(this.body);
         physics.world.setGravity(new AmmoLib.btVector3(0, 0, 0));
+        this.prevPosition = new THREE.Vector3();
 
         // Input
         this.yaw = 0;
@@ -107,6 +113,15 @@ export default class Player {
         this.engineSound.volume = 0.0001;
         this.engineSound.play();
 
+        if (this.useRealValues) {
+            // Use real stats for the spacecraft (this feels pretty slow and kind of boring)
+            this.maxThrottle = 45000;
+        }
+        else {
+            // This feels a bit more fun paired with a stronger gravity on the moon
+            this.maxThrottle = 1000000;
+        }
+
         this._bindEvents();
     } 
 
@@ -123,9 +138,11 @@ export default class Player {
             case 'KeyD': this.movement.rollRight = value; break;     // yaw right
             case 'KeyQ': this.movement.left = value; break;  // roll left
             case 'KeyE': this.movement.right = value; break; // roll right
-            case 'Space': this.movement.up = value; break;       
-            case 'ShiftLeft':
-            case 'ShiftRight': this.movement.down = value; break;
+            case 'Space': this.movement.up = value; break;
+            case 'KeyZ': this.movement.fullThrottle = value; break;
+            case 'KeyX': this.movement.killThrottle = value; break;
+            case 'ShiftLeft': this.movement.increaseThrottle = value; break;
+            case 'ControlLeft': this.movement.decreaseThrottle = value; break;
         }
     }
     getPosition() {
@@ -159,13 +176,30 @@ export default class Player {
         this.velocityText.innerText = speed.toFixed(2) + " m/s";
 
     }
+
+    updatePreviousVelocity() {
+        const vel = this.body.getLinearVelocity();
+        this.prevVelocity = new THREE.Vector3(vel.x(), vel.y(), vel.z());
+    } 
+
+    getImpactVelocity(normal) {
+        // Project previous velocity onto collision normal
+        return -this.prevVelocity.dot(normal);
+    } 
+
     applyMovement(dt) {
+
+        if (this.hasDied) return;
 
         // Apply Gravity
         //this.body.applyCentralForce(new this.AmmoLib.btVector3(0, this.gravity, 0));
         //const mass = 15000; // Mass of Apollo Lander
 
-        if (this.movement.up) { this.throttle = 1000000 } else { this.throttle = 0; }
+        if (this.movement.fullThrottle) { this.throttle = this.maxThrottle }
+        if (this.movement.killThrottle) {this.throttle = 0}
+        if (this.movement.increaseThrottle && this.throttle < this.maxThrottle) { this.throttle += this.maxThrottle/40; }
+        if (this.movement.decreaseThrottle && this.throttle > 0) {this.throttle -= this.maxThrottle/40; }
+        
         const vel = this.body.getLinearVelocity();
         //console.log(vel.x(), vel.y(), vel.z());
 
@@ -185,25 +219,25 @@ export default class Player {
         this.body.applyCentralForce(force);
         this.AmmoLib.destroy(force);
 
-        const maxThrottle = 1000000; // same as your throttle
+        const maxThrottle = this.maxThrottle; 
         if (this.throttle > 0) {
             this.engineSound.volume = Math.min(this.throttle / maxThrottle, 1);
         } else {
             this.engineSound.volume = 0.1; // keep engine "warm" to avoid click
         }
-        if (this.plume) this.plume.update(dt, this.throttle);
+        if (this.plume) this.plume.update(dt, this.throttle, this.maxThrottle);
 
         this.updateUIElements();
     }
 
-    updateUIElements(dt) {
+    updateUIElements() {
         if (!this.throttleContainer || !this.throttleIndicator) return;
 
         // --- Throttle Bar ---
         const throttle = this.throttle;
-        const maxThrottle = 1000000;
+        const maxThrottle = this.maxThrottle;
         const tNorm = Math.min(throttle / maxThrottle, 1);
-        const throttleTop = this.throttleContainer.clientHeight - this.throttleIndicator.clientHeight - tNorm * (this.throttleContainer.clientHeight - this.throttleIndicator.clientHeight) + 10;
+        const throttleTop = this.throttleContainer.clientHeight - this.throttleIndicator.clientHeight - tNorm * (this.throttleContainer.clientHeight - this.throttleIndicator.clientHeight) + 10 ;
         this.throttleIndicator.style.top = `${throttleTop}px`;
 
         // --- Descent Bar ---
@@ -273,5 +307,60 @@ export default class Player {
 
         this.body.setAngularVelocity(angularVel);
     }
+
+
+    //For when we die
+    hideAndStop() {
+        // Hide 3D mesh
+        if (this.mesh) this.mesh.visible = false;
+
+        // Stop physics updates by removing from physics world
+        if (this.body && this.physics) {
+            this.physics.world.removeRigidBody(this.body);
+            this.bodyRemoved = true;
+        }
+        this.engineSound.volume = 0.1;
+        // Stop plume emission and engine sound
+        if (this.plume) {
+            this.plume.container.visible = false;
+        }
+
+    }
+
+    // If we want to continue
+    showAndStart() {
+        // Show mesh
+        if (this.mesh) this.mesh.visible = true;
+
+        // Re-add body to physics world if it was removed
+        if (this.body && this.bodyRemoved && this.physics) {
+            this.physics.addBody(this.body);
+            this.bodyRemoved = false;
+        }
+
+        // Resume plume emission and engine sound
+        if (this.plume) this.plume.container.visible = true;
+        if (this.engineSound) this.engineSound.play();
+
+        // Reset position to START_POS
+        const transform = new this.AmmoLib.btTransform();
+        transform.setIdentity();
+        transform.setOrigin(START_POS);            // <-- sets Ammo body to START_POS
+        transform.setRotation(this.body.getWorldTransform().getRotation()); // keep rotation
+        this.body.setWorldTransform(transform);
+        if (this.body.getMotionState()) {
+            this.body.getMotionState().setWorldTransform(transform);
+        }
+
+        // Update mesh immediately
+        if (this.mesh) {
+            this.mesh.position.set(START_POS.x(), START_POS.y(), START_POS.z());
+        }
+
+        this.body.setLinearVelocity(0);
+        this.body.setAngularVelocity(0);
+    }
+ 
+
  
 }

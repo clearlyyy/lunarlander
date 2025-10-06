@@ -79,16 +79,16 @@ export default class RocketPlume {
     this.container.rotation.x = Math.PI / 2;
   }
 
-  update(dt, throttle = 0) {
+  update(dt, throttle = 0, maxThrottle) {
       if (this.renderer && typeof this.renderer.update === "function") {
         this.renderer.update(dt);
       }
 
-      // throttle-controlled emission
+      const emission = (throttle / maxThrottle) * 900;
       if (this.system.emissionOverTime && typeof this.system.emissionOverTime.setValue === "function") {
-        this.system.emissionOverTime.setValue(throttle > 0 ? 400 : 0);
+        this.system.emissionOverTime.setValue(emission);
       } else if (this.system.emissionOverTime && 'value' in this.system.emissionOverTime) {
-        this.system.emissionOverTime.value = throttle > 0 ? 400 : 0;
+        this.system.emissionOverTime.value = emission;
       }
   }
 
