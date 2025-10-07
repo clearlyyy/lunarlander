@@ -8,7 +8,7 @@ import { MTLLoader, OBJLoader } from 'three/examples/jsm/Addons.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import RocketPlume from './RocketPlume';
 
-const START_POS = new Ammo.btVector3(412174, 139200, 0);
+const START_POS = new Ammo.btVector3(415341, 127682, -11589);
 
 export default class Player {
     constructor(scene, physics, camera, domElement, AmmoLib, useRealValues, hasDied) {
@@ -128,6 +128,7 @@ export default class Player {
     _bindEvents() {
         document.addEventListener('keydown', (e) => this._setKey(e.code, true));
         document.addEventListener('keyup', (e) => this._setKey(e.code, false));
+        document.addEventListener('keypress', (e) => this.isNoClip = !this.isNoClip);
     }
 
     _setKey(code, value) {
@@ -178,8 +179,11 @@ export default class Player {
     }
 
     updatePreviousVelocity() {
-        const vel = this.body.getLinearVelocity();
-        this.prevVelocity = new THREE.Vector3(vel.x(), vel.y(), vel.z());
+        const lv = this.body.getLinearVelocity();
+        this.prevVelocity = new THREE.Vector3(lv.x(), lv.y(), lv.z());
+
+        const av = this.body.getAngularVelocity();
+        this.prevAngular = new THREE.Vector3(av.x(), av.y(), av.z());
     } 
 
     getImpactVelocity(normal) {
@@ -197,8 +201,8 @@ export default class Player {
 
         if (this.movement.fullThrottle) { this.throttle = this.maxThrottle }
         if (this.movement.killThrottle) {this.throttle = 0}
-        if (this.movement.increaseThrottle && this.throttle < this.maxThrottle) { this.throttle += this.maxThrottle/40; }
-        if (this.movement.decreaseThrottle && this.throttle > 0) {this.throttle -= this.maxThrottle/40; }
+        if (this.movement.increaseThrottle && this.throttle < this.maxThrottle) { this.throttle += this.maxThrottle/70; }
+        if (this.movement.decreaseThrottle && this.throttle > 0) {this.throttle -= this.maxThrottle/70; }
         
         const vel = this.body.getLinearVelocity();
         //console.log(vel.x(), vel.y(), vel.z());

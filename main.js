@@ -18,6 +18,10 @@ import ShipCamera from './shipCamera';
 import GUI from './GUI.js'
 import NavBall from './navBall.js';
 import Explosion from './Explosion.js';
+import Obstacle from './obstacle.js';
+import ObstacleBuilder from './obstacleBuilderHelper.js';
+import EditorCamera from './editorCamera.js';
+import CourseLoader from './CourseLoader.js';
 
 // =====================================================
 // Physics World
@@ -51,6 +55,7 @@ class PhysicsWorld {
 // Tile Manager 
 // =====================================================
 const SCALE = 1 / 4;
+const HEIGHTMAP_SCALE = 2;
 
 class TileManager {
     constructor(scene, physics, camera, renderer) {
@@ -90,15 +95,22 @@ class TileManager {
         this.tilesRenderer.setResolutionFromRenderer(this.camera, this.renderer);
         this.tilesRenderer.group.scale.set(SCALE, SCALE, SCALE);
 
+        const loader = new THREE.TextureLoader();
+        this.detailNormal = loader.load('textures/moon_01_nor_gl_4k.jpg');
+        this.detailNormal.wrapS = this.detailNormal.wrapT = THREE.RepeatWrapping;
+        this.detailNormal.repeat.set(10, 10);
+
         this.tilesRenderer.addEventListener('load-model', ({ scene: tileScene }) => {
             tileScene.traverse((c) => {
                 if (c.isMesh && c.material) {
                     const oldMat = c.material;
                     c.material = new THREE.MeshStandardMaterial({
-                        map: oldMat.map || null, // use the original texture
-                        roughness: 0.9,
-                        metalness: 0,
+                        map: oldMat.map || null, 
+                        normalMap: this.detailNormal || null,
+                        roughnessMap: oldMat.roughnessMap || null,
+                        metalnessMap: oldMat.metalnessMap || null,
                     });
+                    c.material.needsUpdate = true;
                     c.castShadow = true;
                     c.receiveShadow = true;
                     c.geometry.computeVertexNormals();
@@ -238,7 +250,8 @@ class TileManager {
 
         const shape = new AmmoLib.btBvhTriangleMeshShape(triangleMesh, true, true);
         return { shape, triangleMesh };
-    } 
+    }
+    
 }
 
 
@@ -251,7 +264,6 @@ const tips = ["Focus on the NavBall, it makes maneuvers a lot simpler.",
               "The Apollo 11 Lunar module weights 15 tons fully fueled.",
               "The most efficient way to slow yourself for landing is performing a suicide burn. To do this, you wait till the very last second to fire your engines, slowing to 0 m/s as you land.",
               "Try aligning your navball in one of the four cardinal directions, this can make rotating in the intended direction easier.",
-              "For your sake, velocities of 25 m/s and higher are considered fatal!",
               ]
 
 // =====================================================
@@ -260,8 +272,11 @@ const tips = ["Focus on the NavBall, it makes maneuvers a lot simpler.",
 class App {
     constructor() {
 
+        this.editorMode = false;
+
         this.useRealValues = false;
         this.hasDied = false;
+        this.isInvisible = true;
 
         if (this.useRealValues) {
             this.moonMass = 4.6e21;
@@ -285,6 +300,7 @@ class App {
         this.updateUIElements();
 
         this.clock = new THREE.Clock();
+
         
         
         // Scene & Renderer
@@ -342,7 +358,9 @@ class App {
             0.4, // radius
             0.85 // threshold
         );
-        this.composer.addPass(bloomPass);
+        if (!this.editorMode) {
+            this.composer.addPass(bloomPass);
+        }
         
         const toneMapping = new ShaderPass(ACESFilmicToneMappingShader);
         this.composer.addPass(toneMapping);
@@ -361,17 +379,16 @@ class App {
         // Tiles
         this.tiles = new TileManager(this.scene, this.physics, this.camera, this.renderer);
         
-        // Player
-        this.player = new Player(this.scene, this.physics, this.camera, this.renderer.domElement, Ammo, this.useRealValues, this.hasDied);
-        
-        this.navBall = new NavBall(this.player, this.hudScene, 80, 'textures/navball.png');
-        
-        // --- NavBall (HUD) ---
-        this.shipCamera = new ShipCamera(this.camera, this.renderer.domElement, this.player);
-        this.gui = new GUI(this.player);
+        if (!this.editorMode) {
+            this.player = new Player(this.scene, this.physics, this.camera, this.renderer.domElement, Ammo, this.useRealValues, this.hasDied);
+            this.navBall = new NavBall(this.player, this.hudScene, 80, 'textures/navball.png');
+            this.shipCamera = new ShipCamera(this.camera, this.renderer.domElement, this.player);
+            this.gui = new GUI(this.player);
+            this.courseLoader = new CourseLoader(this.scene, this.camera, this.renderer, this.physics, 'obstacles.json');
+        }
         
         this.explosion = new Explosion({scene: this.scene});
-
+        
         this.ambientSound = new Audio('sounds/ambient.mp3');
         this.ambientSound.loop = true;
         this.ambientSound.volume = 0.05;
@@ -392,12 +409,19 @@ class App {
             this.navBall.shadow.position.set(0, this.navBallmesh.position.y - 2, -5); // slightly behind the navball
         });
         
+        
+        if (this.editorMode) {
+            this.editorCamera = new EditorCamera(this.camera, document.body, 300);
+            this.obstacleBuilder = new ObstacleBuilder(this.camera, this.editorCamera, this.scene, this.tiles.tilesRenderer, this.renderer);
+        }
         this._init();
         this._bindEvents();
     }
 
     async _init() {
         await this.tiles.init();
+        if (this.editorMode)
+            this.obstacleBuilder.setTileRenderer(this.tiles.tilesRenderer);
         this.animate();
     }
 
@@ -426,29 +450,38 @@ class App {
         requestAnimationFrame(() => this.animate());
         const delta = this.clock.getDelta();
 
-        // --- Player ---
-        this.player.applyRotation();
-        this.player.applyMovement(delta);
-        this.computeGravityForce();
+        if (!this.editorMode) {
+            // --- Player ---
+            this.player.applyRotation();
+            this.player.applyMovement(delta);
+            this.computeGravityForce();
 
-        this.physics.step(delta*this.timeWarp);
-        this.player.updateFromPhysics();
-        this.checkCollisions();
-        this.player.updatePreviousVelocity();
-        if (!this.player.body) return;
+            this.player.updatePreviousVelocity();
+            this.physics.step(delta*this.timeWarp);
+            this.player.updateFromPhysics();
+            if (!this.isInvisible) {
+                this.checkCollisions();
+            }
+            if (!this.player.body) return;
 
-        this.explosion.update(delta);
-        this.gui.update();
+            this.explosion.update(delta);
+            this.gui.update();
 
-        this.navBall.update();
-        // --- Camera ---
-        this.shipCamera.update();
+            this.navBall.update();
+            // --- Camera ---
+            this.shipCamera.update();
+        } else {
+            this.editorCamera.update(delta);
+            this.physics.step(delta*this.timeWarp);
+        }
+
         this._updateShadowLight();
 
         // --- Tiles ---
         this.tiles.update();
-        this.tiles.generateCollision(this.player.mesh, Ammo);
-
+        if (!this.editorMode) {
+            this.tiles.generateCollision(this.player.mesh, Ammo);
+        }
         // --- Render ---
         //this.renderer.render(this.scene, this.camera);
         this.renderer.autoClear = true;
@@ -467,6 +500,7 @@ class App {
                 t.classList.remove('active');
             }
         })
+        document.getElementById("timewarp").innerText = this.timeWarp;
     }
 
     _bindEvents() {
@@ -538,50 +572,105 @@ class App {
     }
 
     checkCollisions() {
-        if (this.hasDied) return;   
+        if (this.hasDied) return;
         const world = this.physics.world;
         const playerBody = this.player.body;
-        let isCollidingThisFrame = false;   
         const dispatcher = world.getDispatcher();
-        const numManifolds = dispatcher.getNumManifolds();  
+        const numManifolds = dispatcher.getNumManifolds();
+
         for (let i = 0; i < numManifolds; i++) {
             const manifold = dispatcher.getManifoldByIndexInternal(i);
-            const body0 = manifold.getBody0();
-            const body1 = manifold.getBody1();
+            const body0 = Ammo.castObject(manifold.getBody0(), Ammo.btRigidBody);
+            const body1 = Ammo.castObject(manifold.getBody1(), Ammo.btRigidBody);
 
-            if (body0.ptr === playerBody.ptr || body1.ptr === playerBody.ptr) {
-                const numContacts = manifold.getNumContacts();
-                for (let j = 0; j < numContacts; j++) {
-                    const pt = manifold.getContactPoint(j);
-                    if (pt.getDistance() < 0) { 
-                        isCollidingThisFrame = true;
-                    
-                        // Get contact normal: Ammo returns normal pointing from body0 -> body1
-                        const normal = pt.get_m_normalWorldOnB();
-                        const normalVec = new THREE.Vector3(normal.x(), normal.y(), normal.z());
-                    
-                        // Project previous velocity along contact normal
-                        const impactVel = -this.player.prevVelocity.dot(normalVec);
-                        const speed = Math.max(impactVel, 0); // avoid negative
-                    
-                        if (!this.player.hasCollided) {
-                            if (speed > 25) { // death threshold
-                                console.log("YOU DIED! Collision speed:", speed.toFixed(2), "m/s");
-                                this.Died(speed.toFixed(2));
-                            } else {
-                                console.log("Safe Landing", speed.toFixed(2), "m/s");
-                            }
-                        
-                            this.player.hasCollided = true;
-                        }
+            // only handle manifolds involving the player
+            if (body0.ptr !== playerBody.ptr && body1.ptr !== playerBody.ptr) continue;
+
+            const isPlayerBody0 = (body0.ptr === playerBody.ptr);
+            const numContacts = manifold.getNumContacts();
+
+            for (let j = 0; j < numContacts; j++) {
+                const pt = manifold.getContactPoint(j);
+
+                // contact distance (overlap)
+                if (pt.getDistance() >= 0) continue;
+
+                // normal (Ammo sometimes uses get_m_normalWorldOnB or getNormalWorldOnB)
+                const normalAmmo = (pt.get_m_normalWorldOnB) ? pt.get_m_normalWorldOnB() : pt.getNormalWorldOnB();
+                const normal = new THREE.Vector3(normalAmmo.x(), normalAmmo.y(), normalAmmo.z()).normalize();
+
+                // contact point in world space (try both getters)
+                const posAmmo = (pt.get_m_positionWorldOnB) ? pt.get_m_positionWorldOnB() : pt.getPositionWorldOnB();
+                const contact = new THREE.Vector3(posAmmo.x(), posAmmo.y(), posAmmo.z());
+
+                // centers of mass (world)
+                const t0 = body0.getWorldTransform();
+                const o0 = t0.getOrigin();
+                const com0 = new THREE.Vector3(o0.x(), o0.y(), o0.z());
+
+                const t1 = body1.getWorldTransform();
+                const o1 = t1.getOrigin();
+                const com1 = new THREE.Vector3(o1.x(), o1.y(), o1.z());
+
+                // r vectors from each body's COM to contact point
+                const r0 = contact.clone().sub(com0);
+                const r1 = contact.clone().sub(com1);
+
+                const v0 = (body0.ptr === playerBody.ptr && this.player.prevVelocity)
+                            ? this.player.prevVelocity.clone()
+                            : new THREE.Vector3(body0.getLinearVelocity().x(), body0.getLinearVelocity().y(), body0.getLinearVelocity().z());
+
+                const w0 = (body0.ptr === playerBody.ptr && this.player.prevAngular)
+                            ? this.player.prevAngular.clone()
+                            : new THREE.Vector3(body0.getAngularVelocity().x(), body0.getAngularVelocity().y(), body0.getAngularVelocity().z());
+
+                const v1 = (body1.ptr === playerBody.ptr && this.player.prevVelocity)
+                            ? this.player.prevVelocity.clone()
+                            : new THREE.Vector3(body1.getLinearVelocity().x(), body1.getLinearVelocity().y(), body1.getLinearVelocity().z());
+
+                const w1 = (body1.ptr === playerBody.ptr && this.player.prevAngular)
+                            ? this.player.prevAngular.clone()
+                            : new THREE.Vector3(body1.getAngularVelocity().x(), body1.getAngularVelocity().y(), body1.getAngularVelocity().z());
+
+                // velocity at contact points
+                const velPoint0 = v0.clone().add(new THREE.Vector3().copy(w0).cross(r0));
+                const velPoint1 = v1.clone().add(new THREE.Vector3().copy(w1).cross(r1));
+
+                const relVel = velPoint0.clone().sub(velPoint1);
+
+                // closing speed along normal (positive if bodies are approaching)
+                const closing = -relVel.dot(normal); 
+                const impactSpeed = Math.max(closing, 0);
+
+                const appliedImpulse = (pt.getAppliedImpulse) ? pt.getAppliedImpulse() :
+                                       (pt.get_m_appliedImpulse ? pt.get_m_appliedImpulse() : 0);
+
+                const IMPACT_SPEED_DEATH = 25.0;
+                const IMPULSE_DEATH = 50000; 
+
+                if (!this.player.hasCollided) {
+                    const causeDeath = (appliedImpulse && appliedImpulse > IMPULSE_DEATH)
+                                       || (!appliedImpulse && impactSpeed > IMPACT_SPEED_DEATH);
+
+                    if (causeDeath) {
+                        console.log("YOU DIED! impactSpeed:", impactSpeed.toFixed(2), "appliedImpulse:", appliedImpulse);
+                        this.Died(impactSpeed.toFixed(2));                   
+                    } else {
+                        console.log("Safe contact. impactSpeed:", impactSpeed.toFixed(2), "impulse:", appliedImpulse);
                     }
+                    this.player.hasCollided = true;
+                    setTimeout(() => {
+                        this.player.hasCollided = false;
+                    }, 200);
                 }
             }
-        }   
-        if (!isCollidingThisFrame) {
-            this.player.hasCollided = false;
         }
-    }   
+
+        // clear collision state
+        // (outside loop after manifolds processing:)
+        // if you tracked isCollidingThisFrame you'd reset hasCollided = false when no contact this frame
+    }
+ 
 
 
     Died(vel) {
@@ -596,9 +685,13 @@ class App {
             this.player.throttle = 0;
             const explosionSound = new Audio('./sounds/explosion_somewhere_far.mp3');
             explosionSound.play();
-            document.getElementById("death-velocity").innerText = vel;
-            document.getElementById("death-screen").classList.add('active');
-            document.getElementById("tip").innerText = tips[Math.floor(Math.random() * tips.length)];
+            setTimeout(() => {
+                document.getElementById("death-velocity").innerText = vel;
+                document.getElementById("death-screen").classList.add('active');
+                document.getElementById("tip").innerText = tips[Math.floor(Math.random() * tips.length)];
+            }, 1000);
+            this.timeWarp = 1;
+            this.updateUIElements();
         }
     }
 
