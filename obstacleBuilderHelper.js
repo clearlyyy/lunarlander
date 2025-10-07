@@ -147,8 +147,9 @@ export default class ObstacleBuilder {
             this.camera,
             this.renderer,
             null,
+            null,
             this.obstacleType,
-            modelPaths[this.obstacleType] || null
+            true
         ); 
         this.obstacles.push(obstacle);
 

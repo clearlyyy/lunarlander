@@ -16,11 +16,13 @@ export default class CourseLoader {
         };
 
         if (jsonPath) {
-            this.loadFromPath(jsonPath);
+            this.readyPromise = this.loadFromPath(jsonPath);
         }
     }
 
     async loadFromPath(path) {
+        if (this.loaded) return;
+        this.loaded = true;
         try {
             const response = await fetch(path);
             if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
@@ -62,16 +64,29 @@ export default class CourseLoader {
                     this.physicsWorld,
                     quaternion,
                     item.type,
-                    modelPath
+                    false
                 );
 
                 this.obstacles.push(obstacle);
             }
-
+            this.isReady = true;
             console.log(`Loaded ${this.obstacles.length} obstacles from ${path}.`);
         } catch (e) {
             console.error(`Failed to load obstacles from ${path}:`, e);
         }
+    }
+
+    updateObstacleShaders(delta) {
+        for (const obstacle of this.obstacles) {
+            if (obstacle.visualMesh && obstacle.visualMesh.material?.uniforms?.time) {
+                obstacle.visualMesh.material.uniforms.time.value += delta;
+            }
+        }
+    }
+
+    async waitUntilReady() {
+        if (this.isReady) return;
+        await this.readyPromise;
     }
 
     clearObstacles() {

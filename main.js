@@ -22,6 +22,7 @@ import Obstacle from './obstacle.js';
 import ObstacleBuilder from './obstacleBuilderHelper.js';
 import EditorCamera from './editorCamera.js';
 import CourseLoader from './CourseLoader.js';
+import CourseManager from './CourseManager.js';
 
 // =====================================================
 // Physics World
@@ -406,7 +407,7 @@ class App {
             this.hudCamera.bottom = -window.innerHeight / 2;
             this.hudCamera.updateProjectionMatrix();
             this.navBall.mesh.position.set(0, -window.innerHeight/2 + 90, 0); // HUD position
-            this.navBall.shadow.position.set(0, this.navBallmesh.position.y - 2, -5); // slightly behind the navball
+            this.navBall.shadow.position.set(0, this.navBall.mesh.position.y - 2, -5); // slightly behind the navball
         });
         
         
@@ -420,6 +421,11 @@ class App {
 
     async _init() {
         await this.tiles.init();
+        if (!this.editorMode) {
+            await this.courseLoader.waitUntilReady();
+
+            this.courseManager = new CourseManager(this.courseLoader.obstacles, this.player);
+        }
         if (this.editorMode)
             this.obstacleBuilder.setTileRenderer(this.tiles.tilesRenderer);
         this.animate();
@@ -450,7 +456,8 @@ class App {
         requestAnimationFrame(() => this.animate());
         const delta = this.clock.getDelta();
 
-        if (!this.editorMode) {
+        if (!this.editorMode && this.courseLoader?.isReady) {
+            this.courseLoader.updateObstacleShaders(delta);
             // --- Player ---
             this.player.applyRotation();
             this.player.applyMovement(delta);
@@ -459,6 +466,7 @@ class App {
             this.player.updatePreviousVelocity();
             this.physics.step(delta*this.timeWarp);
             this.player.updateFromPhysics();
+            this.courseManager.checkCollisions();
             if (!this.isInvisible) {
                 this.checkCollisions();
             }
