@@ -15,66 +15,91 @@ export default class CourseLoader {
             box: 'assets/models/truss_box.glb'
         };
 
-        if (jsonPath) {
-            this.readyPromise = this.loadFromPath(jsonPath);
-        }
+        this.readyPromise = null;
+    }
+
+    loadCourse(jsonPath) {
+        if (!jsonPath) return;
+        this.readyPromise = this.loadFromPath(jsonPath);
+        return this.readyPromise;
     }
 
     async loadFromPath(path) {
-        if (this.loaded) return;
-        this.loaded = true;
-        try {
-            const response = await fetch(path);
-            if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
-            const data = await response.json();
+    // Remove this check or modify it:
+    // if (this.loaded) return;
+    // this.loaded = true;
 
-            this.clearObstacles();
+    try {
+        const response = await fetch(path);
+        if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+        const data = await response.json();
 
-            for (const item of data) {
-                const position = new THREE.Vector3(
-                    item.position.x,
-                    item.position.y,
-                    item.position.z
+        // Clear previous obstacles
+        this.clearObstacles();
+
+        // Set up new course
+        const obstaclesArray = Array.isArray(data) ? data : data.obstacles || [];
+        const playerPosData = data.playerpos || { x: 0, y: 0, z: 0 };
+        this.playerStart = new THREE.Vector3(
+            playerPosData.x,
+            playerPosData.y,
+            playerPosData.z
+        );
+
+        this.difficulty = data.difficulty || 'normal';
+        this.courseName = data.courseName || 'Unnamed Course';
+        this.description = data.description || 'Unknown Description';
+
+        this.obstacles = [];
+
+        for (const item of obstaclesArray) {
+            const position = new THREE.Vector3(
+                item.position.x,
+                item.position.y,
+                item.position.z
+            );
+
+            let quaternion;
+            if (item.rotation?.w !== undefined) {
+                quaternion = new THREE.Quaternion(
+                    item.rotation.x,
+                    item.rotation.y,
+                    item.rotation.z,
+                    item.rotation.w
                 );
-
-                let quaternion;
-                if (item.rotation?.w !== undefined) {
-                    quaternion = new THREE.Quaternion(
-                        item.rotation.x,
-                        item.rotation.y,
-                        item.rotation.z,
-                        item.rotation.w
-                    );
-                } else {
-                    const euler = new THREE.Euler(
-                        item.rotation.x || 0,
-                        item.rotation.y || 0,
-                        item.rotation.z || 0
-                    );
-                    quaternion = new THREE.Quaternion().setFromEuler(euler);
-                }
-
-                const modelPath = this.modelMap[item.type] || this.modelMap.ring;
-
-                const obstacle = new Obstacle(
-                    position,
-                    this.scene,
-                    this.camera,
-                    this.renderer,
-                    this.physicsWorld,
-                    quaternion,
-                    item.type,
-                    false
+            } else {
+                const euler = new THREE.Euler(
+                    item.rotation.x || 0,
+                    item.rotation.y || 0,
+                    item.rotation.z || 0
                 );
-
-                this.obstacles.push(obstacle);
+                quaternion = new THREE.Quaternion().setFromEuler(euler);
             }
-            this.isReady = true;
-            console.log(`Loaded ${this.obstacles.length} obstacles from ${path}.`);
-        } catch (e) {
-            console.error(`Failed to load obstacles from ${path}:`, e);
+
+            const modelPath = this.modelMap[item.type] || this.modelMap.ring;
+            const obstacle = new Obstacle(
+                position,
+                this.scene,
+                this.camera,
+                this.renderer,
+                this.physicsWorld,
+                quaternion,
+                item.type,
+                false
+            );
+
+            if (typeof item.number === 'number') obstacle.number = item.number;
+
+            this.obstacles.push(obstacle);
         }
+
+        this.isReady = true;
+        console.log(`Loaded ${this.obstacles.length} obstacles from ${path}.`);
+    } catch (e) {
+        console.error(`Failed to load obstacles from ${path}:`, e);
     }
+}
+
 
     updateObstacleShaders(delta) {
         for (const obstacle of this.obstacles) {

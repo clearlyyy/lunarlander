@@ -14,6 +14,8 @@ export default class Obstacle {
             this.colliderPath = "./assets/models/truss_box_collider.glb";
         }
 
+        this.number = 0;
+
         this.scene = scene;
         this.camera = camera;
         this.renderer = renderer;
@@ -25,20 +27,22 @@ export default class Obstacle {
         this.body = null;
 
         this.loadModel(quaternion);
+        
+        
     }
 
     // there is a lot of bullshit that makes no sense, just dont touch it, it works, the slighest change will fuck this up 
     async loadModel(quaternion) {
         try {
             const loader = new GLTFLoader();
-        
+
             // --- Load main glTF model ---
             const gltf = await loader.loadAsync(this.modelPath);
             this.mesh = gltf.scene;
             this.mesh.position.copy(this.position);
             this.mesh.scale.set(5, 5, 5);
             if (quaternion) this.mesh.quaternion.copy(quaternion);
-        
+
             // Metallic material for main model
             const metalMaterial = new THREE.MeshStandardMaterial({
                 color: 0xaaaaaa,
@@ -46,7 +50,7 @@ export default class Obstacle {
                 roughness: 0.1,
                 envMapIntensity: 1.0,
             });
-        
+
             this.mesh.traverse(child => {
                 if (child.isMesh) {
                     child.material = metalMaterial;
@@ -54,78 +58,14 @@ export default class Obstacle {
                     child.receiveShadow = true;
                 }
             });
-        
+
+            this.originalQuaternion = this.mesh.quaternion.clone();
+
             this.scene.add(this.mesh);
-        
-            if (!this.isEditor) {
-                let geom;
-                let gradientAxis = 'y'; 
-                if (this.type === 'ring') {
-                    geom = new THREE.CylinderGeometry(19, 19, 2, 64, 1, false);
-                    gradientAxis = 'z'; 
-                } else if (this.type === 'box') {
-                    geom = new THREE.BoxGeometry(19, 19, 1);
-                }
-            
-                geom.computeBoundingBox();
-                const minVal = geom.boundingBox[`min`][gradientAxis];
-                const maxVal = geom.boundingBox[`max`][gradientAxis];
-            
-                const shaderMat = new THREE.ShaderMaterial({
-                    transparent: true,
-                    side: THREE.DoubleSide,
-                    uniforms: {
-                        time: { value: 0 },
-                        color1: { value: new THREE.Color(0x0285f0) },
-                        color2: { value: new THREE.Color(0x020275) },
-                        minVal: { value: minVal },
-                        maxVal: { value: maxVal },
-                        speed: { value: 0.5 }
-                    },
-                    vertexShader: `
-                        varying float vPos;
-                        uniform float minVal;
-                        uniform float maxVal;
-                        void main() {
-                            ${gradientAxis === 'y' ? 'vPos = (position.y - minVal) / (maxVal - minVal);' : ''}
-                            ${gradientAxis === 'z' ? 'vPos = (position.z - minVal) / (maxVal - minVal);' : ''}
-                            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-                        }
-                    `,
-                    fragmentShader: `
-                        uniform float time;
-                        uniform vec3 color1;
-                        uniform vec3 color2;
-                        uniform float speed;
-                        varying float vPos;
-                        void main() {
-                            // move gradient over time
-                            float t = vPos + time * speed;
-                            
-                            // smooth looping gradient
-                            float gradient = 0.5 + 0.5 * sin(t * 3.14159);
-                            
-                            vec3 col = mix(color1, color2, gradient);
-                            float alpha = gradient * 0.1; // map gradient to 0..0.1
-                            gl_FragColor = vec4(col, alpha);
-                        }
-                    `
-                });
-            
-                this.visualMesh = new THREE.Mesh(geom, shaderMat);
-                this.visualMesh.position.copy(this.mesh.position);
-                this.visualMesh.quaternion.copy(this.mesh.quaternion);
-                this.visualMesh.scale.copy(this.mesh.scale);
-            
-                if (this.type === 'ring') {
-                    const rotQuat = new THREE.Quaternion();
-                    rotQuat.setFromAxisAngle(new THREE.Vector3(1, 0, 0), Math.PI / 2);
-                    this.visualMesh.quaternion.copy(this.mesh.quaternion).multiply(rotQuat);
-                }
-            
-                this.scene.add(this.visualMesh);
-            }
-        
+
+            // --- Create the visual mesh ---
+            this._createVisualMesh();
+
             // --- Load collider model ---
             const colliderGltf = await loader.loadAsync(this.colliderPath);
             let colliderMesh = null;
@@ -133,38 +73,74 @@ export default class Obstacle {
                 if (child.isMesh && !colliderMesh) colliderMesh = child;
             });
             if (!colliderMesh) throw new Error("No mesh found in collider model");
-        
+
             colliderMesh.position.copy(this.mesh.position);
             if (quaternion) colliderMesh.quaternion.copy(quaternion);
             colliderMesh.scale.copy(this.mesh.scale);
-        
+
             const { shape } = this._convertMeshToShape(colliderMesh.geometry, Ammo);
-        
+
             const scaling = new Ammo.btVector3(colliderMesh.scale.x, colliderMesh.scale.y, colliderMesh.scale.z);
             shape.setLocalScaling(scaling);
             Ammo.destroy(scaling);
-        
+
             const transform = new Ammo.btTransform();
             transform.setIdentity();
             transform.setOrigin(new Ammo.btVector3(this.position.x, this.position.y, this.position.z));
-        
+
             const quatAmmo = new Ammo.btQuaternion(this.mesh.quaternion.x, this.mesh.quaternion.y, this.mesh.quaternion.z, this.mesh.quaternion.w);
             transform.setRotation(quatAmmo);
-        
+
             const motionState = new Ammo.btDefaultMotionState(transform);
             const mass = 0;
             const localInertia = new Ammo.btVector3(0, 0, 0);
             const rbInfo = new Ammo.btRigidBodyConstructionInfo(mass, motionState, shape, localInertia);
-        
+
             this.body = new Ammo.btRigidBody(rbInfo);
-            if (this.physicsWorld.addRigidBody) this.physicsWorld.addRigidBody(this.body);
+            if (this.physicsWorld.addBody) this.physicsWorld.addBody(this.body);
             else this.physicsWorld.addBody(this.body);
-        
+
+            console.log(`Obstacle Created: ${this.type}, ${this.number}`);
             console.log(`[Obstacle] Collider ready for type=${this.type}`);
         } catch (e) {
             console.error(`Failed to load model or collider:`, e);
         }
     }
+
+    reset() {
+    // Reset mesh position/rotation
+    if (this.mesh) {
+        this.mesh.position.copy(this.position);
+        this.mesh.quaternion.copy(this.originalQuaternion);
+        this.mesh.updateMatrixWorld();
+    }
+
+    // Reset physics
+    if (this.body) {
+        const transform = new Ammo.btTransform();
+        transform.setIdentity();
+        transform.setOrigin(new Ammo.btVector3(this.position.x, this.position.y, this.position.z));
+
+        const quatAmmo = new Ammo.btQuaternion(
+            this.originalQuaternion.x,
+            this.originalQuaternion.y,
+            this.originalQuaternion.z,
+            this.originalQuaternion.w
+        );
+        transform.setRotation(quatAmmo);
+
+        this.body.setWorldTransform(transform);
+        this.body.getMotionState().setWorldTransform(transform);
+        this.body.setLinearVelocity(new Ammo.btVector3(0, 0, 0));
+        this.body.setAngularVelocity(new Ammo.btVector3(0, 0, 0));
+    }
+
+    // Recreate visual mesh if removed
+    if (!this.visualMesh) this._createVisualMesh();
+}
+
+
+
  
 
     _convertMeshToShape(geometry, AmmoLib) {
@@ -209,6 +185,77 @@ export default class Obstacle {
         const shape = new AmmoLib.btBvhTriangleMeshShape(triangleMesh, true, true);
         return { shape, triangleMesh };
     }
+
+    _createVisualMesh() {
+        if (!this.mesh || this.isEditor) return;
+
+        let geom;
+        let gradientAxis = 'y'; 
+        if (this.type === 'ring') {
+            geom = new THREE.CylinderGeometry(19, 19, 2, 64, 1, false);
+            gradientAxis = 'z'; 
+        } else if (this.type === 'box') {
+            geom = new THREE.BoxGeometry(19, 19, 1);
+        }
+
+        geom.computeBoundingBox();
+        const minVal = geom.boundingBox[`min`][gradientAxis];
+        const maxVal = geom.boundingBox[`max`][gradientAxis];
+
+        const shaderMat = new THREE.ShaderMaterial({
+            transparent: true,
+            side: THREE.DoubleSide,
+            uniforms: {
+                time: { value: 0 },
+                color1: { value: new THREE.Color(0x0285f0) },
+                color2: { value: new THREE.Color(0x020275) },
+                minVal: { value: minVal },
+                maxVal: { value: maxVal },
+                speed: { value: 0.5 }
+            },
+            vertexShader: `
+                varying float vPos;
+                uniform float minVal;
+                uniform float maxVal;
+                void main() {
+                    ${gradientAxis === 'y' ? 'vPos = (position.y - minVal) / (maxVal - minVal);' : ''}
+                    ${gradientAxis === 'z' ? 'vPos = (position.z - minVal) / (maxVal - minVal);' : ''}
+                    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                }
+            `,
+            fragmentShader: `
+                uniform float time;
+                uniform vec3 color1;
+                uniform vec3 color2;
+                uniform float speed;
+                varying float vPos;
+                void main() {
+                    float t = vPos + time * speed;
+                    float gradient = 0.5 + 0.5 * sin(t * 3.14159);
+                    vec3 col = mix(color1, color2, gradient);
+                    float alpha = gradient * 0.1;
+                    gl_FragColor = vec4(col, alpha);
+                }
+            `
+        });
+
+        this.visualMesh = new THREE.Mesh(geom, shaderMat);
+        this.visualMesh.position.copy(this.mesh.position);
+        this.visualMesh.scale.copy(this.mesh.scale);
+
+        if (this.type === 'ring') {
+            // Only apply extra rotation to the ring
+            const rotQuat = new THREE.Quaternion();
+            rotQuat.setFromAxisAngle(new THREE.Vector3(1, 0, 0), Math.PI / 2);
+            this.visualMesh.quaternion.copy(this.originalQuaternion).multiply(rotQuat);
+        } else {
+            // Box: copy mesh rotation directly
+            this.visualMesh.quaternion.copy(this.originalQuaternion);
+        }
+
+        this.scene.add(this.visualMesh);
+    }
+
 
     removeVisualMesh() {
         if (this.visualMesh) {

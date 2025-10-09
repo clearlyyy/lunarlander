@@ -8,12 +8,13 @@ import { MTLLoader, OBJLoader } from 'three/examples/jsm/Addons.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import RocketPlume from './RocketPlume';
 
-const START_POS = new Ammo.btVector3(415341, 127682, -11589);
+const START_POS = new Ammo.btVector3(415122, 127557, -11914);
 
 export default class Player {
-    constructor(scene, physics, camera, domElement, AmmoLib, useRealValues, hasDied) {
+    constructor(scene, physics, camera, domElement, AmmoLib, useRealValues, hasDied, easyControls = false, isInMainMenu) {
         this.hasDied = hasDied;
         this.useRealValues = useRealValues;
+        this.isInMainMenu = isInMainMenu;
 
         this.AmmoLib = AmmoLib;
 
@@ -22,6 +23,9 @@ export default class Player {
         this.throttleIndicator = document.getElementById("throttle-bar");
         const descentContainer = document.getElementById("descent-container");
         const descentIndicator = document.getElementById("descent-bar");
+
+        this.camera = camera;
+        this.easyControls = easyControls;
 
         this.hasCollided = false;
         this.maxThrottle = 70000; // In Kilo Newtons 
@@ -193,7 +197,7 @@ export default class Player {
 
     applyMovement(dt) {
 
-        if (this.hasDied) return;
+        if (this.hasDied || this.isInMainMenu()) return;
 
         // Apply Gravity
         //this.body.applyCentralForce(new this.AmmoLib.btVector3(0, this.gravity, 0));
@@ -277,20 +281,29 @@ export default class Player {
 
     
     applyRotation() {
-        const AmmoLib = this.AmmoLib;
-        const rotationSpeed = 0.03;   // radians/sec for user input
-        const userDamping = 0.9;      // strong damping on user input
-        const physicsDamping = 0.995; // light damping on physics rotation
+        let rotationSpeed = 0.03;   // radians/sec for user input
+        let userDamping = 0.9;      // strong damping on user input
+        let physicsDamping = 0.995; // light damping on physics rotation
+        if (this.easyControls) {
+            rotationSpeed = 0.1;
+            userDamping = 0.85;      // strong damping on user input
+            physicsDamping = 0.97; // light damping on physics rotation
+        }
 
         // Get current rotation
         const transform = this.body.getWorldTransform();
         const rot = transform.getRotation();
         const quat = new THREE.Quaternion(rot.x(), rot.y(), rot.z(), rot.w());
 
+        let baseQuat = quat;
+        if (this.easyControls && this.camera) {
+            baseQuat = this.camera.quaternion.clone();
+        }
+
         // Local axes in world space
-        const localForward = new THREE.Vector3(0, 0, 1).applyQuaternion(quat);
-        const localUp = new THREE.Vector3(0, 1, 0).applyQuaternion(quat);
-        const localRight = new THREE.Vector3(1, 0, 0).applyQuaternion(quat);
+        const localForward = new THREE.Vector3(0, 0, 1).applyQuaternion(baseQuat);
+        const localUp = new THREE.Vector3(0, 1, 0).applyQuaternion(baseQuat);
+        const localRight = new THREE.Vector3(1, 0, 0).applyQuaternion(baseQuat);
 
         // Compute user input angular change
         const deltaAngular = new THREE.Vector3();
@@ -310,6 +323,28 @@ export default class Player {
         angularVel.setZ(angularVel.z() * physicsDamping + deltaAngular.z * userDamping);
 
         this.body.setAngularVelocity(angularVel);
+    }
+
+    setPosition(pos) {
+        const transform = new this.AmmoLib.btTransform();
+        transform.setIdentity();
+        
+        // Set new position
+        transform.setOrigin(new this.AmmoLib.btVector3(pos.x, pos.y, pos.z));
+        
+        // Keep the current rotation
+        const currentRot = this.body.getWorldTransform().getRotation();
+        transform.setRotation(currentRot);
+        
+        // Apply to the body
+        this.body.setWorldTransform(transform);
+        
+        // Update motion state if it exists (important for simulation)
+        if (this.body.getMotionState()) {
+            this.body.getMotionState().setWorldTransform(transform);
+        }
+    
+        this.AmmoLib.destroy(transform); // clean up
     }
 
 

@@ -1,10 +1,11 @@
 import * as THREE from 'three';
 
 export default class ShipCamera {
-    constructor(camera, domElement, ship) {
+    constructor(camera, domElement, ship, isInMainMenu) {
         this.camera = camera;
         this.domElement = domElement;
         this.ship = ship;
+        this.isInMainMenu = isInMainMenu;
 
         this.distance = 150;          // default distance from ship
         this.minDistance = 20;
@@ -56,28 +57,28 @@ export default class ShipCamera {
     }
 
     updateCamera(moonPos = new THREE.Vector3(0, 0, 0)) {
-    if (!this.ship.mesh) return;
+        if (!this.ship.mesh || this.isInMainMenu()) return;
 
-    const shipPos = this.ship.mesh.position;
-    const up = shipPos.clone().sub(moonPos).normalize(); // radial up
+        const shipPos = this.ship.mesh.position;
+        const up = shipPos.clone().sub(moonPos).normalize(); // radial up
 
-    // Build a local frame: right & forward
-    const forward = new THREE.Vector3(0, 0, 1); // arbitrary initial forward
-    if (up.dot(forward) > 0.999) forward.set(1, 0, 0); // avoid parallel
-    const right = new THREE.Vector3().crossVectors(up, forward).normalize();
-    const localForward = new THREE.Vector3().crossVectors(right, up).normalize();
+        // Build a local frame: right & forward
+        const forward = new THREE.Vector3(0, 0, 1); // arbitrary initial forward
+        if (up.dot(forward) > 0.999) forward.set(1, 0, 0); // avoid parallel
+        const right = new THREE.Vector3().crossVectors(up, forward).normalize();
+        const localForward = new THREE.Vector3().crossVectors(right, up).normalize();
 
-    // Compute offset in local frame
-    const offset = new THREE.Vector3();
-    offset.add(right.clone().multiplyScalar(Math.sin(this.azimuth) * Math.cos(this.elevation) * this.distance));
-    offset.add(localForward.clone().multiplyScalar(Math.cos(this.azimuth) * Math.cos(this.elevation) * this.distance));
-    offset.add(up.clone().multiplyScalar(Math.sin(this.elevation) * this.distance));
+        // Compute offset in local frame
+        const offset = new THREE.Vector3();
+        offset.add(right.clone().multiplyScalar(Math.sin(this.azimuth) * Math.cos(this.elevation) * this.distance));
+        offset.add(localForward.clone().multiplyScalar(Math.cos(this.azimuth) * Math.cos(this.elevation) * this.distance));
+        offset.add(up.clone().multiplyScalar(Math.sin(this.elevation) * this.distance));
 
-    // Set camera
-    this.camera.position.copy(shipPos.clone().add(offset));
-    this.camera.up.copy(up);
-    this.camera.lookAt(shipPos);
-}
+        // Set camera
+        this.camera.position.copy(shipPos.clone().add(offset));
+        this.camera.up.copy(up);
+        this.camera.lookAt(shipPos);
+    }
  
 
     update() {

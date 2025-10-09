@@ -23,6 +23,9 @@ import ObstacleBuilder from './obstacleBuilderHelper.js';
 import EditorCamera from './editorCamera.js';
 import CourseLoader from './CourseLoader.js';
 import CourseManager from './CourseManager.js';
+import MainMenu from './MainMenu.js';
+import { thickness } from 'three/tsl';
+import EscMenu from './EscMenu.js';
 
 // =====================================================
 // Physics World
@@ -105,12 +108,22 @@ class TileManager {
             tileScene.traverse((c) => {
                 if (c.isMesh && c.material) {
                     const oldMat = c.material;
+                
+                    // Compute distance from camera to tile
+                    const tilePos = new THREE.Vector3();
+                    c.getWorldPosition(tilePos);
+                    const distance = this.camera.position.distanceTo(tilePos);
+                
+                    // Only use detail map if within 50,000 units
+                    const useDetailMap = distance <= 50000;
+                
                     c.material = new THREE.MeshStandardMaterial({
-                        map: oldMat.map || null, 
-                        normalMap: this.detailNormal || null,
+                        map: oldMat.map || null,
+                        normalMap: useDetailMap ? this.detailNormal : null,
                         roughnessMap: oldMat.roughnessMap || null,
                         metalnessMap: oldMat.metalnessMap || null,
                     });
+                
                     c.material.needsUpdate = true;
                     c.castShadow = true;
                     c.receiveShadow = true;
@@ -278,6 +291,13 @@ class App {
         this.useRealValues = false;
         this.hasDied = false;
         this.isInvisible = true;
+        this.easyControls = true;
+        this._isInMainMenu = true;
+        this.isInCourse = false;
+
+        this.isEscMenuOpen = false;
+
+        this.currentCourse = 'obstacles.json';
 
         if (this.useRealValues) {
             this.moonMass = 4.6e21;
@@ -302,8 +322,6 @@ class App {
 
         this.clock = new THREE.Clock();
 
-        
-        
         // Scene & Renderer
         this.scene = new THREE.Scene();
         this.scene.background = new THREE.Color(0x000000);
@@ -381,12 +399,14 @@ class App {
         this.tiles = new TileManager(this.scene, this.physics, this.camera, this.renderer);
         
         if (!this.editorMode) {
-            this.player = new Player(this.scene, this.physics, this.camera, this.renderer.domElement, Ammo, this.useRealValues, this.hasDied);
+            this.player = new Player(this.scene, this.physics, this.camera, this.renderer.domElement, Ammo, this.useRealValues, this.hasDied, this.easyControls, () => this.isInMainMenu);
             this.navBall = new NavBall(this.player, this.hudScene, 80, 'textures/navball.png');
-            this.shipCamera = new ShipCamera(this.camera, this.renderer.domElement, this.player);
+            this.shipCamera = new ShipCamera(this.camera, this.renderer.domElement, this.player, () => this.isInMainMenu);
             this.gui = new GUI(this.player);
             this.courseLoader = new CourseLoader(this.scene, this.camera, this.renderer, this.physics, 'obstacles.json');
+            this.MainMenu = new MainMenu(this.camera, this.player, this.StartGame.bind(this), this.loadCourse.bind(this));
         }
+        this.EscMenu = new EscMenu(this.GoToMainMenu.bind(this));
         
         this.explosion = new Explosion({scene: this.scene});
         
@@ -415,6 +435,13 @@ class App {
             this.editorCamera = new EditorCamera(this.camera, document.body, 300);
             this.obstacleBuilder = new ObstacleBuilder(this.camera, this.editorCamera, this.scene, this.tiles.tilesRenderer, this.renderer);
         }
+
+
+        this.mainMenuUI = document.getElementById("main-menu");
+        this.gameUI = document.getElementById("game-ui");
+
+        this._updateUIVisibility();
+
         this._init();
         this._bindEvents();
     }
@@ -424,7 +451,7 @@ class App {
         if (!this.editorMode) {
             await this.courseLoader.waitUntilReady();
 
-            this.courseManager = new CourseManager(this.courseLoader.obstacles, this.player);
+            //this.courseManager = new CourseManager(this.courseLoader.obstacles, this.player);
         }
         if (this.editorMode)
             this.obstacleBuilder.setTileRenderer(this.tiles.tilesRenderer);
@@ -454,10 +481,17 @@ class App {
 
     animate() {
         requestAnimationFrame(() => this.animate());
-        const delta = this.clock.getDelta();
+        let delta = this.clock.getDelta();
+        if (this.isEscMenuOpen) {
+            delta = 0;
+        }
 
-        if (!this.editorMode && this.courseLoader?.isReady) {
-            this.courseLoader.updateObstacleShaders(delta);
+        if (this.isInMainMenu && !this.editorMode) {
+            this.MainMenu.update();
+        }
+
+        
+        if (!this.editorMode) {
             // --- Player ---
             this.player.applyRotation();
             this.player.applyMovement(delta);
@@ -466,7 +500,6 @@ class App {
             this.player.updatePreviousVelocity();
             this.physics.step(delta*this.timeWarp);
             this.player.updateFromPhysics();
-            this.courseManager.checkCollisions();
             if (!this.isInvisible) {
                 this.checkCollisions();
             }
@@ -477,10 +510,19 @@ class App {
 
             this.navBall.update();
             // --- Camera ---
-            this.shipCamera.update();
+            if (!this.isInMainMenu) {
+                this.shipCamera.update();
+            }
         } else {
-            this.editorCamera.update(delta);
+            if (this.editorCamera) {
+                this.editorCamera.update(delta);
+            }
             this.physics.step(delta*this.timeWarp);
+        }
+
+        if (this.courseLoader?.isReady && this.courseManager) {
+            this.courseLoader.updateObstacleShaders(delta);
+            this.courseManager.checkCollisions();
         }
 
         this._updateShadowLight();
@@ -496,6 +538,7 @@ class App {
         this.composer.render();
         this.hudRenderer.autoClear = false;
         this.hudRenderer.clearDepth();
+        if (this.isInMainMenu) return;
         this.hudRenderer.render(this.hudScene, this.hudCamera);
 
     }
@@ -515,16 +558,41 @@ class App {
         document.addEventListener('keydown', (event) => {
             if (!this.keysDown[event.code]) {
                 this.keysDown[event.code] = true;
-                if (event.code == 'Period' && this.timeWarp < 7) {
+            
+                if (event.code === 'KeyR') {
+                    if (this.isInCourse) {
+                        console.log("Resetting course...");
+                        this.loadCourse(this.currentCourse);
+                        this.courseManager?.reset();
+                        this.Start();
+                        this.player.throttle = 0;
+                    }
+                }
+
+                if (event.code === 'Escape') {
+                    if (this.isInMainMenu) return;
+                    if (!this.isEscMenuOpen) {
+                        this.EscMenu.show();
+                        this.isEscMenuOpen = true;
+                    }
+                    else {
+                        this.EscMenu.hide();
+                        this.isEscMenuOpen = false;
+                    }
+                }
+            
+                if (event.code === 'Period' && this.timeWarp < 7) {
                     this.timeWarp++;
                     this.updateUIElements();
                 }
-                if (event.code == 'Comma' && this.timeWarp > 1) {
+            
+                if (event.code === 'Comma' && this.timeWarp > 1) {
                     this.timeWarp--;
                     this.updateUIElements();
                 }
             }
         });
+
 
         // Reset the key when released so it can trigger again
         document.addEventListener('keyup', (event) => {
@@ -534,6 +602,8 @@ class App {
         document.getElementById("tryagain-button").addEventListener('click', function(event) {
             this.Start()
         }.bind(this));
+
+        
     }
  
 
@@ -561,7 +631,7 @@ class App {
     }
 
     computeGravityForce() {
-        if (!this.player.body) return;
+        if (!this.player.body || this.isInMainMenu) return;
         const pos = this.player.getPosition();
         const r = pos.clone().sub(this.moonPos);
         const distSq = r.lengthSq();
@@ -673,10 +743,27 @@ class App {
                 }
             }
         }
+    }
 
-        // clear collision state
-        // (outside loop after manifolds processing:)
-        // if you tracked isCollidingThisFrame you'd reset hasCollided = false when no contact this frame
+    get isInMainMenu() {
+        return this._isInMainMenu;
+    }
+
+    set isInMainMenu(value) {
+        if (this._isInMainMenu === value) return;
+        this._isInMainMenu = value;
+        this._updateUIVisibility();
+    }
+
+    _updateUIVisibility() {
+        if (!this.mainMenuUI || !this.gameUI) return; 
+        if (this._isInMainMenu) {
+            this.mainMenuUI.style.display = "block";
+            this.gameUI.style.display = "none";
+        } else {
+            this.mainMenuUI.style.display = "none";
+            this.gameUI.style.display = "block";
+        }
     }
  
 
@@ -711,6 +798,64 @@ class App {
 
     }
 
+    StartGame() {
+        console.log("Starting Free Flight");
+        this.Start();
+        this.isInMainMenu = false;
+        this.player.setPosition(new THREE.Vector3(415122, 127557, -11914));
+        
+    }
+
+    loadCourse(coursePath = null) {
+        if (!this.courseLoader) return;
+
+        // Use given path or current one
+        if (coursePath) {
+            this.currentCourse = coursePath;
+        }
+
+        console.log("Loading obstacle course...", this.currentCourse);
+
+        // Remove old courseManager & obstacles
+        if (this.courseManager) {
+            this.courseManager.destroy();  // we need a destroy method
+            this.courseManager = null;
+        }
+        this.courseLoader.clearObstacles(); // make sure loader removes old obstacles
+
+        this.isInMainMenu = false;
+
+        this.courseLoader.loadFromPath(this.currentCourse).then(() => {
+            this.courseManager = new CourseManager(
+                this.courseLoader.obstacles,
+                this.courseLoader.playerStart,
+                this.courseLoader.difficulty,
+                this.courseLoader.courseName,
+                this.courseLoader.description,
+                this.player
+            );
+            this.player.setPosition(this.courseLoader.playerStart);
+            console.log("Course loaded!");
+            this.isInCourse = true;
+        });
+    }
+
+
+
+    GoToMainMenu() {
+        console.log("Going to Main Menu");
+        this.isInMainMenu = true;
+        this.EscMenu.hide();
+        this.isEscMenuOpen = false;
+        this.player.body.setLinearVelocity(new Ammo.btVector3(0,0,0));
+        this.player.throttle = 0;
+        this.player.engineSound.volume = 0.0;
+    }
+
+
+
 }
 
-new App();
+window.addEventListener('DOMContentLoaded', () => {
+    new App();
+});

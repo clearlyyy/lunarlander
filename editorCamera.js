@@ -1,14 +1,13 @@
 import * as THREE from 'three';
 
 export default class EditorCamera {
-    constructor(camera, domElement, moonPos = new THREE.Vector3(0,0,0), speed = 200, lookSpeed = 0.002) {
+    constructor(camera, domElement, speed = 100, lookSpeed = 0.002) {
         this.camera = camera;
         this.domElement = domElement;
-        this.moonPos = new THREE.Vector3(0,0,0); 
         this.speed = speed;
         this.lookSpeed = lookSpeed;
 
-        // Movement states
+        // Movement
         this.moveForward = false;
         this.moveBackward = false;
         this.moveLeft = false;
@@ -17,13 +16,27 @@ export default class EditorCamera {
         this.moveDown = false;
 
         // Rotation
-        this.pitch = 0;
-        this.yaw = 0;
-        this.isDragging = false; 
+        this.pitch = 0; // around X axis
+        this.yaw = 0;   // around Y axis
+        this.isDragging = false;
 
-        this.camera.position.set(415341, 127682, -11589);
+        this.camera.position.set(410357, 143723, 46731);
 
         this._bindEvents();
+
+        // Camera position HUD
+        this.posDisplay = document.createElement('div');
+        this.posDisplay.style.position = 'absolute';
+        this.posDisplay.style.left = '10px';
+        this.posDisplay.style.bottom = '10px';
+        this.posDisplay.style.color = '#0f0';
+        this.posDisplay.style.fontFamily = 'monospace';
+        this.posDisplay.style.fontSize = '14px';
+        this.posDisplay.style.background = 'rgba(0,0,0,0.5)';
+        this.posDisplay.style.padding = '4px 6px';
+        this.posDisplay.style.borderRadius = '4px';
+        this.posDisplay.style.zIndex = '1000';
+        document.body.appendChild(this.posDisplay);
     }
 
     _bindEvents() {
@@ -32,12 +45,11 @@ export default class EditorCamera {
         this.domElement.addEventListener('keyup', (e) => this._onKeyUp(e));
 
         // Mouse
-        this.domElement.addEventListener('mousedown', (e) =>  {if (e.button === 2) this.isDragging = true});
-        this.domElement.addEventListener('mouseup', (e) => {if (e.button === 2) this.isDragging = false});
+        this.domElement.addEventListener('mousedown', (e) => { if (e.button === 2) this.isDragging = true; });
+        this.domElement.addEventListener('mouseup', (e) => { if (e.button === 2) this.isDragging = false; });
         this.domElement.addEventListener('mousemove', (e) => this._onMouseMove(e));
         this.domElement.addEventListener('contextmenu', (e) => e.preventDefault());
 
-        // Ensure canvas can capture keyboard
         this.domElement.tabIndex = 0;
         this.domElement.style.outline = 'none';
         this.domElement.focus();
@@ -66,50 +78,47 @@ export default class EditorCamera {
     }
 
     _onMouseMove(event) {
-        if (!this.isDragging || this.isBlock) return; 
+        if (!this.isDragging) return;
         this.yaw -= event.movementX * this.lookSpeed;
         this.pitch -= event.movementY * this.lookSpeed;
-        this.pitch = Math.max(-Math.PI/2, Math.min(Math.PI/2, this.pitch));
+        //this.pitch = Math.max(-Math.PI/2 + 0.001, Math.min(Math.PI/2 - 0.001, this.pitch)); // avoid gimbal lock
     }
 
     update(delta) {
+        // Calculate rotation quaternion
+        const quat = new THREE.Quaternion()
+            .setFromEuler(new THREE.Euler(this.pitch, this.yaw, 0, 'YXZ')); // Y = yaw, X = pitch
 
-        if (this.isBlocked) return;
-        const up = this.camera.position.clone().sub(this.moonPos).normalize();
+        // Forward/right/up
+        const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(quat);
+        const right = new THREE.Vector3(1, 0, 0).applyQuaternion(quat);
+        const up = new THREE.Vector3(0, 1, 0).applyQuaternion(quat);
 
-        let forwardRef = new THREE.Vector3(0,0,-1);
-        if (Math.abs(up.dot(forwardRef)) > 0.99) forwardRef.set(1,0,0);
-
-        const right = new THREE.Vector3().crossVectors(up, forwardRef).normalize();
-        const forward = new THREE.Vector3().crossVectors(right, up).normalize();
-
-        const quatYaw = new THREE.Quaternion().setFromAxisAngle(up, this.yaw);
-        const forwardYawed = forward.clone().applyQuaternion(quatYaw);
-        const quatPitch = new THREE.Quaternion().setFromAxisAngle(right, -this.pitch);
-        const lookDir = forwardYawed.clone().applyQuaternion(quatPitch);
-
+        // Movement
         const moveVector = new THREE.Vector3();
-        const rightDir = right.clone().applyQuaternion(quatYaw);
-
-        if (this.moveForward) moveVector.add(lookDir);
-        if (this.moveBackward) moveVector.add(lookDir.clone().negate());
-        if (this.moveLeft) moveVector.add(rightDir);
-        if (this.moveRight) moveVector.add(rightDir.clone().negate());
+        if (this.moveForward) moveVector.add(forward);
+        if (this.moveBackward) moveVector.sub(forward);
+        if (this.moveRight) moveVector.add(right);
+        if (this.moveLeft) moveVector.sub(right);
         if (this.moveUp) moveVector.add(up);
-        if (this.moveDown) moveVector.add(up.clone().negate());
+        if (this.moveDown) moveVector.sub(up);
 
+        // Only normalize if multiple keys are pressed to prevent diagonal boost
         if (moveVector.lengthSq() > 0) {
-            moveVector.normalize().multiplyScalar(this.speed * delta);
+            if (moveVector.lengthSq() > 1) moveVector.normalize();
+            moveVector.multiplyScalar(this.speed);
             this.camera.position.add(moveVector);
         }
 
-        this.camera.up.copy(up);
-        this.camera.lookAt(this.camera.position.clone().add(lookDir));
+        this.camera.quaternion.copy(quat);
+
+        // HUD update
+        const p = this.camera.position;
+        this.posDisplay.innerText = `Cam: X:${p.x.toFixed(0)} Y:${p.y.toFixed(0)} Z:${p.z.toFixed(0)}`;
     }
+
 
     setBlocked(blocked) {
-        this.isBlocked = blocked; 
+        this.isBlocked = blocked;
     }
-
 }
-

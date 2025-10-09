@@ -1,14 +1,18 @@
 import * as THREE from 'three';
 
 export default class CourseManager {
-    constructor(obstacles = [], player) {
+    constructor(obstacles = [], startPos, difficulty, courseName, description, player) {
         this.obstacles = obstacles; // Array of Obstacle instances
         this.player = player;       // Your Player instance
+        this.startPos = startPos;
+        this.difficulty = difficulty;
+        this.courseName = courseName;
+        this.description = description;
+
+
     }
 
-    /**
-     * Call this every frame
-     */
+    
     checkCollisions() {
         if (!this.player || !this.player.mesh) return;
         
@@ -24,12 +28,36 @@ export default class CourseManager {
             }
         }
     } 
- 
 
-    /**
-     * Optionally, update the obstacles list
-     */
+    reset() {
+        this.player.setPosition(this.startPos);
+        
+        // Reset all obstacles
+        for (const obstacle of this.obstacles) {
+            obstacle.reset();
+        }
+    }
+ 
     setObstacles(obstacles) {
         this.obstacles = obstacles;
+    }
+
+    destroy() {
+        for (const obstacle of this.obstacles) {
+            if (obstacle.visualMesh) {
+                if (obstacle.visualMesh.geometry) obstacle.visualMesh.geometry.dispose();
+                if (obstacle.visualMesh.material) {
+                    if (Array.isArray(obstacle.visualMesh.material)) {
+                        obstacle.visualMesh.material.forEach(mat => mat.dispose());
+                    } else {
+                        obstacle.visualMesh.material.dispose();
+                    }
+                }
+                obstacle.visualMesh.parent?.remove(obstacle.visualMesh);
+                obstacle.visualMesh = null;
+            }
+        }
+        this.obstacles = [];
+        this.player = null; // optional if you want to completely detach player reference
     }
 }

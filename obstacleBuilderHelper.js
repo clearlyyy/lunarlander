@@ -116,6 +116,12 @@ export default class ObstacleBuilder {
                 if (this.mode === 'edit') {
                     this.selectedObstacle = obstacle;
                     this.transformControls.attach(obstacle.mesh);
+                    const newNumber = prompt(`Enter a number for obstacle (current: ${obstacle.number ?? 'none'})`);
+                    if (newNumber !== null && !isNaN(newNumber)) {
+                        obstacle.number = parseInt(newNumber, 10);
+                        console.log(`Assigned number ${obstacle.number} to obstacle`);
+                    }
+
                 } else if (this.mode === 'delete') {
                     this.deleteObstacle(obstacle);
                 }
@@ -194,12 +200,21 @@ export default class ObstacleBuilder {
 
                 return {
                     type: o.type,
+                    number: o.number ?? null,
                     position: { x: position.x, y: position.y, z: position.z },
                     rotation: { x: quaternion.x, y: quaternion.y, z: quaternion.z, w: quaternion.w }
                 };
             });
+        
+        const output = {
+            playerpos: { x: 0, y: 0, z: 0},
+            difficulty: "easy",
+            courseName: "COURSE NAME",
+            description: "This is a description",
+            obstacles: data
+        }
 
-        const json = JSON.stringify(data, null, 2);
+        const json = JSON.stringify(output, null, 2);
         const blob = new Blob([json], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
 
@@ -209,7 +224,7 @@ export default class ObstacleBuilder {
         a.click();
         URL.revokeObjectURL(url);
 
-        console.log('Obstacles saved:', data);
+        console.log('Obstacles saved:', output);
     }
 }
 
