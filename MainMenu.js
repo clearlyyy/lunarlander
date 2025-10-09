@@ -6,7 +6,7 @@ export default class MainMenu {
         this.player = player;
         this.fixedPosition = new THREE.Vector3(539237, -163942, 15124);
         this.fixedRotation = new THREE.Euler(0, 90, 0, 'XYZ'); 
-        this.offset = new THREE.Vector3(80, 0, 0);
+        this.offset = new THREE.Vector3(40, 0, 0);
 
         this.freeFlightButton = document.getElementById("free-flight");
         this.freeFlightButton.addEventListener("click", () => {
@@ -15,6 +15,21 @@ export default class MainMenu {
 
         this.courseButtonsContainer = document.getElementById("course-buttons");
         this.loadCourseCallback = loadCourse;
+
+        this.mainPage = document.getElementById("menu-page");
+        this.courseSelectPage = document.getElementById("course-select");
+
+        this.coursesButton = document.getElementById("courses");
+        this.coursesButton.addEventListener("click", () => {
+            this.mainPage.style.display = "none";
+            this.courseSelectPage.style.display = "flex";
+        })
+
+        this.courseBackButton = document.getElementById("back-button");
+        this.courseBackButton.addEventListener("click", () => {
+            this.mainPage.style.display = "block";
+            this.courseSelectPage.style.display = "none";
+        })
 
         // Load list of course JSON paths
         fetch('courses.json')
@@ -31,6 +46,13 @@ export default class MainMenu {
                 const btn = document.createElement('div');
                 btn.className = 'course-button';
 
+                const img = document.createElement('img');
+                img.className = "course-image";
+                img.src = courseData.image || '';
+
+                const infoDiv = document.createElement('div');
+                infoDiv.className = 'course-info';
+
                 // Course Name
                 const nameDiv = document.createElement('div');
                 nameDiv.className = 'course-name';
@@ -41,9 +63,18 @@ export default class MainMenu {
                 descDiv.className = 'course-desc';
                 descDiv.innerText = courseData.description || '';
 
+                const diffDiv = document.createElement('div');
+                diffDiv.className = 'difficulty';
+                diffDiv.innerText = "Difficulty: " + courseData.difficulty || '';
+
+
                 // Append name and description inside button
-                btn.appendChild(nameDiv);
-                btn.appendChild(descDiv);
+                infoDiv.appendChild(nameDiv);
+                infoDiv.appendChild(descDiv);
+                infoDiv.appendChild(diffDiv);
+
+                btn.appendChild(img);
+                btn.appendChild(infoDiv);
 
                 // Click to load course
                 btn.addEventListener('click', () => {

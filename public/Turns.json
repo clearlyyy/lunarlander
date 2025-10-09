@@ -4,9 +4,10 @@
     "y": 145507,
     "z": 43093
   },
-  "difficulty": "medium",
+  "difficulty": "Hard",
   "courseName": "Turns and Bends",
   "description": "A Simple Course in the Sea of Tranquility",
+  "image": "turns_bends.png",
   "obstacles": [
     {
       "type": "ring",

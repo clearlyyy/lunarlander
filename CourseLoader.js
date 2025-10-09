@@ -25,80 +25,87 @@ export default class CourseLoader {
     }
 
     async loadFromPath(path) {
-    // Remove this check or modify it:
-    // if (this.loaded) return;
-    // this.loaded = true;
-
-    try {
-        const response = await fetch(path);
-        if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
-        const data = await response.json();
-
-        // Clear previous obstacles
-        this.clearObstacles();
-
-        // Set up new course
-        const obstaclesArray = Array.isArray(data) ? data : data.obstacles || [];
-        const playerPosData = data.playerpos || { x: 0, y: 0, z: 0 };
-        this.playerStart = new THREE.Vector3(
-            playerPosData.x,
-            playerPosData.y,
-            playerPosData.z
-        );
-
-        this.difficulty = data.difficulty || 'normal';
-        this.courseName = data.courseName || 'Unnamed Course';
-        this.description = data.description || 'Unknown Description';
-
-        this.obstacles = [];
-
-        for (const item of obstaclesArray) {
-            const position = new THREE.Vector3(
-                item.position.x,
-                item.position.y,
-                item.position.z
+        try {
+            const response = await fetch(path);
+            if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+            const data = await response.json();
+        
+            // Clear previous obstacles
+            this.clearObstacles();
+        
+            // --- Player Position ---
+            const playerPosData = data.playerpos || { x: 0, y: 0, z: 0 };
+            this.playerStart = new THREE.Vector3(
+                playerPosData.x,
+                playerPosData.y,
+                playerPosData.z
             );
-
-            let quaternion;
-            if (item.rotation?.w !== undefined) {
-                quaternion = new THREE.Quaternion(
-                    item.rotation.x,
-                    item.rotation.y,
-                    item.rotation.z,
-                    item.rotation.w
+        
+            // --- Player Rotation (Euler) ---
+            const playerRotData = data.playerrot || { x: 0, y: 0, z: 0 };
+            this.playerRotation = new THREE.Euler(
+                playerRotData.x,
+                playerRotData.y,
+                playerRotData.z
+            );
+        
+            // --- Course Metadata ---
+            this.difficulty = data.difficulty || 'normal';
+            this.courseName = data.courseName || 'Unnamed Course';
+            this.description = data.description || 'Unknown Description';
+        
+            // --- Obstacles ---
+            const obstaclesArray = Array.isArray(data) ? data : data.obstacles || [];
+            this.obstacles = [];
+        
+            for (const item of obstaclesArray) {
+                const position = new THREE.Vector3(
+                    item.position.x,
+                    item.position.y,
+                    item.position.z
                 );
-            } else {
-                const euler = new THREE.Euler(
-                    item.rotation.x || 0,
-                    item.rotation.y || 0,
-                    item.rotation.z || 0
+            
+                let quaternion;
+                if (item.rotation?.w !== undefined) {
+                    quaternion = new THREE.Quaternion(
+                        item.rotation.x,
+                        item.rotation.y,
+                        item.rotation.z,
+                        item.rotation.w
+                    );
+                } else {
+                    const euler = new THREE.Euler(
+                        item.rotation.x || 0,
+                        item.rotation.y || 0,
+                        item.rotation.z || 0
+                    );
+                    quaternion = new THREE.Quaternion().setFromEuler(euler);
+                }
+            
+                const modelPath = this.modelMap[item.type] || this.modelMap.ring;
+                const obstacle = new Obstacle(
+                    position,
+                    this.scene,
+                    this.camera,
+                    this.renderer,
+                    this.physicsWorld,
+                    quaternion,
+                    item.type,
+                    false
                 );
-                quaternion = new THREE.Quaternion().setFromEuler(euler);
+            
+                if (typeof item.number === 'number') obstacle.number = item.number;
+            
+                this.obstacles.push(obstacle);
             }
-
-            const modelPath = this.modelMap[item.type] || this.modelMap.ring;
-            const obstacle = new Obstacle(
-                position,
-                this.scene,
-                this.camera,
-                this.renderer,
-                this.physicsWorld,
-                quaternion,
-                item.type,
-                false
-            );
-
-            if (typeof item.number === 'number') obstacle.number = item.number;
-
-            this.obstacles.push(obstacle);
+        
+            this.isReady = true;
+            console.log(`Loaded ${this.obstacles.length} obstacles from ${path}.`);
+        } catch (e) {
+            console.error(`Failed to load obstacles from ${path}:`, e);
         }
-
-        this.isReady = true;
-        console.log(`Loaded ${this.obstacles.length} obstacles from ${path}.`);
-    } catch (e) {
-        console.error(`Failed to load obstacles from ${path}:`, e);
     }
-}
+
 
 
     updateObstacleShaders(delta) {

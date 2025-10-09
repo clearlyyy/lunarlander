@@ -18,11 +18,8 @@ export default class Player {
 
         this.AmmoLib = AmmoLib;
 
-        this.velocityText = document.getElementById("velocity");
         this.throttleContainer = document.getElementById("throttle-container");
         this.throttleIndicator = document.getElementById("throttle-bar");
-        const descentContainer = document.getElementById("descent-container");
-        const descentIndicator = document.getElementById("descent-bar");
 
         this.camera = camera;
         this.easyControls = easyControls;
@@ -115,7 +112,7 @@ export default class Player {
         this.engineSound = new Audio('/sounds/thruster.wav');
         this.engineSound.loop = true;
         this.engineSound.volume = 0.0001;
-        this.engineSound.play();
+        this.audioUnlocked = false;        // track if user has unlocked audio
 
         if (this.useRealValues) {
             // Use real stats for the spacecraft (this feels pretty slow and kind of boring)
@@ -133,6 +130,15 @@ export default class Player {
         document.addEventListener('keydown', (e) => this._setKey(e.code, true));
         document.addEventListener('keyup', (e) => this._setKey(e.code, false));
         document.addEventListener('keypress', (e) => this.isNoClip = !this.isNoClip);
+    }
+
+    unlockAudio() {
+        if (!this.audioUnlocked) {
+            this.engineSound.play().catch(() => {
+                console.warn("Engine sound blocked by browser");
+            });
+            this.audioUnlocked = true;
+        }
     }
 
     _setKey(code, value) {
@@ -174,12 +180,6 @@ export default class Player {
             this.debugMesh.position.set(origin.x(), origin.y(), origin.z());
             this.debugMesh.quaternion.set(rotation.x(), rotation.y(), rotation.z(), rotation.w());
         }
-
-        const vel = this.body.getLinearVelocity();
-        const velocity = new THREE.Vector3(vel.x(), vel.y(), vel.z());
-        const speed = velocity.length();
-        this.velocityText.innerText = speed.toFixed(2) + " m/s";
-
     }
 
     updatePreviousVelocity() {
@@ -347,6 +347,32 @@ export default class Player {
         this.AmmoLib.destroy(transform); // clean up
     }
 
+    setRotation(euler) {
+        const transform = new this.AmmoLib.btTransform();
+        transform.setIdentity();
+
+        const currentPos = this.body.getWorldTransform().getOrigin();
+        transform.setOrigin(new this.AmmoLib.btVector3(currentPos.x(), currentPos.y(), currentPos.z()));
+
+        // Convert Euler to Quaternion (THREE → Ammo)
+        const quat = new THREE.Quaternion().setFromEuler(euler);
+        const ammoQuat = new this.AmmoLib.btQuaternion(quat.x, quat.y, quat.z, quat.w);
+        transform.setRotation(ammoQuat);
+
+        this.body.setWorldTransform(transform);
+
+        if (this.body.getMotionState()) {
+            this.body.getMotionState().setWorldTransform(transform);
+        }
+
+        if (this.mesh) {
+            this.mesh.quaternion.copy(quat);
+        }
+
+        this.AmmoLib.destroy(transform);
+        this.AmmoLib.destroy(ammoQuat);
+    }
+
 
     //For when we die
     hideAndStop() {
@@ -366,7 +392,7 @@ export default class Player {
 
     }
 
-    // If we want to continue
+    
     showAndStart() {
         // Show mesh
         if (this.mesh) this.mesh.visible = true;
@@ -377,15 +403,17 @@ export default class Player {
             this.bodyRemoved = false;
         }
 
-        // Resume plume emission and engine sound
+        // Resume plume emission
         if (this.plume) this.plume.container.visible = true;
-        if (this.engineSound) this.engineSound.play();
 
-        // Reset position to START_POS
+        // Play engine sound if unlocked
+        if (this.audioUnlocked) this.engineSound.play();
+
+        // Reset position
         const transform = new this.AmmoLib.btTransform();
         transform.setIdentity();
-        transform.setOrigin(START_POS);            // <-- sets Ammo body to START_POS
-        transform.setRotation(this.body.getWorldTransform().getRotation()); // keep rotation
+        transform.setOrigin(START_POS);
+        transform.setRotation(this.body.getWorldTransform().getRotation());
         this.body.setWorldTransform(transform);
         if (this.body.getMotionState()) {
             this.body.getMotionState().setWorldTransform(transform);

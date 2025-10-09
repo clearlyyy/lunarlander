@@ -79,6 +79,18 @@ export default class ShipCamera {
         this.camera.up.copy(up);
         this.camera.lookAt(shipPos);
     }
+
+    setRotation(euler) {
+        // Yaw (rotation around Y axis) controls azimuth (horizontal)
+        this.azimuth = euler.y;
+        
+        // Pitch (rotation around X axis) controls elevation (vertical)
+        this.elevation = euler.x;
+        
+        // Update camera to reflect new orientation
+        this.updateCamera();
+    }
+
  
 
     update() {

@@ -1,4 +1,6 @@
 [
     "obstacles.json",
-    "Turns.json"
+    "Turns.json",
+    "circle.json",
+    "HillClimb.json"
 ]

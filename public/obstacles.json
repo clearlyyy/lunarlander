@@ -4,9 +4,15 @@
     "y": 127682,
     "z": -11589
   },
-  "difficulty": "easy",
-  "courseName": "COURSE NAME",
-  "description": "This is a description",
+  "playerrot": {
+    "x": 0,
+    "y": 0,
+    "z": 0
+  },
+  "difficulty": "Easy",
+  "courseName": "Simple",
+  "description": "This is as simple as it gets.",
+  "image": "simple_course.png",
   "obstacles": [
     {
       "type": "ring",

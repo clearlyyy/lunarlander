@@ -20,7 +20,7 @@ export default class EditorCamera {
         this.yaw = 0;   // around Y axis
         this.isDragging = false;
 
-        this.camera.position.set(410357, 143723, 46731);
+        this.camera.position.set(-54079, 319141, 292543);
 
         this._bindEvents();
 
