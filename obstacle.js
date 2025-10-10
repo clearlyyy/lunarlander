@@ -108,36 +108,36 @@ export default class Obstacle {
     }
 
     reset() {
-    // Reset mesh position/rotation
-    if (this.mesh) {
-        this.mesh.position.copy(this.position);
-        this.mesh.quaternion.copy(this.originalQuaternion);
-        this.mesh.updateMatrixWorld();
+        // Reset mesh position/rotation
+        if (this.mesh) {
+            this.mesh.position.copy(this.position);
+            this.mesh.quaternion.copy(this.originalQuaternion);
+            this.mesh.updateMatrixWorld();
+        }
+    
+        // Reset physics
+        if (this.body) {
+            const transform = new Ammo.btTransform();
+            transform.setIdentity();
+            transform.setOrigin(new Ammo.btVector3(this.position.x, this.position.y, this.position.z));
+        
+            const quatAmmo = new Ammo.btQuaternion(
+                this.originalQuaternion.x,
+                this.originalQuaternion.y,
+                this.originalQuaternion.z,
+                this.originalQuaternion.w
+            );
+            transform.setRotation(quatAmmo);
+        
+            this.body.setWorldTransform(transform);
+            this.body.getMotionState().setWorldTransform(transform);
+            this.body.setLinearVelocity(new Ammo.btVector3(0, 0, 0));
+            this.body.setAngularVelocity(new Ammo.btVector3(0, 0, 0));
+        }
+    
+        // Recreate visual mesh if removed
+        if (!this.visualMesh) this._createVisualMesh();
     }
-
-    // Reset physics
-    if (this.body) {
-        const transform = new Ammo.btTransform();
-        transform.setIdentity();
-        transform.setOrigin(new Ammo.btVector3(this.position.x, this.position.y, this.position.z));
-
-        const quatAmmo = new Ammo.btQuaternion(
-            this.originalQuaternion.x,
-            this.originalQuaternion.y,
-            this.originalQuaternion.z,
-            this.originalQuaternion.w
-        );
-        transform.setRotation(quatAmmo);
-
-        this.body.setWorldTransform(transform);
-        this.body.getMotionState().setWorldTransform(transform);
-        this.body.setLinearVelocity(new Ammo.btVector3(0, 0, 0));
-        this.body.setAngularVelocity(new Ammo.btVector3(0, 0, 0));
-    }
-
-    // Recreate visual mesh if removed
-    if (!this.visualMesh) this._createVisualMesh();
-}
 
 
 

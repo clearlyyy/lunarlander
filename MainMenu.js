@@ -31,6 +31,24 @@ export default class MainMenu {
             this.courseSelectPage.style.display = "none";
         })
 
+        this.settingsButton = document.getElementById("settings");
+        this.settingsButton.addEventListener('click', () => {
+            document.getElementById("settings-page").style.display = "flex";
+        })
+
+        document.getElementById("exit-settings").addEventListener('click', () => {
+            document.getElementById("settings-page").style.display = "none";
+        })
+        this.escMenuSettingsButton = document.getElementById("go-to-settings");
+        this.escMenuSettingsButton.addEventListener('click', () => {
+            document.getElementById("settings-page").style.display = "flex";
+        })
+
+        document.getElementById("go-to-game").addEventListener('click', () => {
+            document.getElementById("esc-menu").style.display = "none";
+        })
+        
+
         // Load list of course JSON paths
         fetch('courses.json')
             .then(res => res.json())

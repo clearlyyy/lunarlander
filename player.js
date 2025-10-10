@@ -8,6 +8,8 @@ import { MTLLoader, OBJLoader } from 'three/examples/jsm/Addons.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import RocketPlume from './RocketPlume';
 
+import { getCookie, setCookie } from './cookies';
+
 const START_POS = new Ammo.btVector3(415122, 127557, -11914);
 
 export default class Player {
@@ -21,11 +23,71 @@ export default class Player {
         this.throttleContainer = document.getElementById("throttle-container");
         this.throttleIndicator = document.getElementById("throttle-bar");
 
+        this.velocityText = document.getElementById("velocity");
+
         this.camera = camera;
         this.easyControls = easyControls;
 
+        this.maxThrottle = 1000000;
+
         this.hasCollided = false;
-        this.maxThrottle = 70000; // In Kilo Newtons 
+        const savedThrottle = getCookie("maxThrottle");
+        if (savedThrottle !== null) {
+            this.maxThrottle = parseInt(savedThrottle);
+        } else {
+            this.maxThrottle = 1000000; // Default
+        }
+
+        this.throttleSlider = document.getElementById("thrust-slider");
+        this.thrustval = document.getElementById("thrust-val");
+
+        this.realthrust = document.getElementById("realthrust");
+        this.superthrust = document.getElementById("superthrust");
+        this.throttleSlider.value = this.maxThrottle / 1000;
+        this.thrustval.innerText = this.maxThrottle / 1000 + "kN";
+
+        this.realthrust.addEventListener('click', () => {
+            this.throttleSlider.value = 45;
+            this.thrustval.innerText = this.throttleSlider.value + "kN";
+            this.maxThrottle = parseInt(this.throttleSlider.value) * 1000;
+            setCookie("maxThrottle", this.maxThrottle, 365);
+        });
+
+        this.superthrust.addEventListener('click', () => {
+            this.throttleSlider.value = 1000;
+            this.thrustval.innerText = this.throttleSlider.value + "kN";
+            this.maxThrottle = parseInt(this.throttleSlider.value) * 1000;
+            setCookie("maxThrottle", this.maxThrottle, 365);
+        });
+
+        this.throttleSlider.addEventListener('input', () => {
+            this.thrustval.innerText = this.throttleSlider.value + "kN";
+            this.maxThrottle = parseInt(this.throttleSlider.value) * 1000;
+            setCookie("maxThrottle", this.maxThrottle, 365);
+        });
+
+        this.currentControlSetting = document.getElementById("currentControlSetting");
+        this.worldRel = document.getElementById("world");
+        this.cameraRel = document.getElementById("camera");
+
+        const saved = getCookie("easyControls");
+        if (saved !== null) {
+            this.easyControls = (saved === "true");
+        }
+
+        if (this.easyControls) this.currentControlSetting.innerText = "Camera Relative";
+        else this.currentControlSetting.innerText = "World Relative";
+        this.worldRel.addEventListener('click', () => {
+            this.easyControls = false;
+            this.currentControlSetting.innerText = "World Relative";
+            setCookie("easyControls", "false", 365);
+        });
+
+        this.cameraRel.addEventListener('click', () => {
+            this.easyControls = true;
+            this.currentControlSetting.innerText = "Camera Relative";
+            setCookie("easyControls", "true", 365);
+        });
 
         const gltfPath = './assets/models/apollo_craft/apollo_lander.glb';
 
@@ -114,15 +176,6 @@ export default class Player {
         this.engineSound.volume = 0.0001;
         this.audioUnlocked = false;        // track if user has unlocked audio
 
-        if (this.useRealValues) {
-            // Use real stats for the spacecraft (this feels pretty slow and kind of boring)
-            this.maxThrottle = 45000;
-        }
-        else {
-            // This feels a bit more fun paired with a stronger gravity on the moon
-            this.maxThrottle = 1000000;
-        }
-
         this._bindEvents();
     } 
 
@@ -210,6 +263,9 @@ export default class Player {
         
         const vel = this.body.getLinearVelocity();
         //console.log(vel.x(), vel.y(), vel.z());
+        const velocity = new THREE.Vector3(vel.x(), vel.y(), vel.z());
+        const speed = velocity.length();
+        this.velocityText.innerText = speed.toFixed(2) + " m/s";
 
         // Calculate current UP Vector for throttle.
         const transform = this.body.getWorldTransform();
@@ -288,6 +344,11 @@ export default class Player {
             rotationSpeed = 0.1;
             userDamping = 0.85;      // strong damping on user input
             physicsDamping = 0.97; // light damping on physics rotation
+        }
+
+        if (this.isInMainMenu()) {
+            const angularVelocity = new Ammo.btVector3(0.1, 0.1, 0.1); // Rotate around Y-axis
+            this.body.setAngularVelocity(angularVelocity);
         }
 
         // Get current rotation

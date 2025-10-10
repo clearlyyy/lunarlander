@@ -18,7 +18,7 @@
             <div id="course-buttons" class="button-container">
               <div class="ding">
                 <h1 class="back-button" id="back-button"><<</h1>
-                <h1>Avaliable Courses: </h1>
+                <h1>Available Courses: </h1>
               </div>
             </div>
           </div>
@@ -38,10 +38,64 @@
         </div>
     </div>
 
+    <div class="settings" id="settings-page">
+      <img class="settings-logo" src="moonlander-logo.png"/>
+      <div class="button return" id="exit-settings">Return</div>
+      <h1>Settings</h1>
+      <hr style="width: 90%"/>
+      <div class="controls-settings">
+        <h2>Craft Control Scheme</h2>
+        <h3>Selected: <span id="currentControlSetting">Camera Relative</span></h2>
+          <div class="oneline">
+            <div class="button setting" id="world">
+              World Relative
+            </div>
+            <div class="button setting" id="camera">
+              Camera Relative
+            </div>
+          </div>
+        </div>
+        <hr style="width: 90%"/>
+        <div class="controls-settings">
+          <h2>Craft Settings</h2>
+          <div class="oneline">
+            <div class="button setting" id="realthrust">
+              Real Thrust (45 kN)
+            </div>
+            <div class="button setting" id="superthrust">
+              Super Thruster (1000 kN)
+            </div>
+          </div>
+          <input type="range" min="5", max="10000" value="1000" id="thrust-slider" class="slider"><p class="slider-value">Thrust: <span id="thrust-val">0 kN</span></p></input>
+        </div>
+        <hr style="width: 90%;"/>
+        <div class="controls-settings">
+          <h2>Moon Settings</h2>
+          <div class="oneline">
+            <div class="button setting" id="real-mass">
+              Real Mass (0.165g)
+            </div>
+            <div class="button setting" id="super-mass">
+              Super Moon (2.64g)
+            </div>
+          </div>
+          <input type="range" min="3.1e20", max="1e23" value="1000" id="mass-slider" class="slider"><p class="slider-value">Mass: <span id="mass-val">0 </span> Kg (<span id="gravity-val">1 </span> g)</p></input>
+        </div>
+      
+    </div>
+
     <div id="esc-menu" class="esc-menu">
-      <h1>Menu</h1>
-      <div class="button" id="go-to-main-menu">
-        Go To Main Menu
+      <div class="menu-div">
+        <img src="moonlander-logo.png" class="ding"/>
+        <div class="button" id="go-to-main-menu">
+          Go To Main Menu
+        </div>
+        <div class="button" id="go-to-settings">
+          Settings
+        </div>
+        <div class="button" id="go-to-game">
+          Return to game
+        </div>
       </div>
     </div>
 
@@ -70,7 +124,7 @@
           <div class="button" id="tryagain-button">
             <p>Try Again</p>
           </div> 
-          <div class="button menu-button" id="tryagain-button">
+          <div class="button menu-button" id="menu-button">
             <p>Menu</p>
           </div> 
         </div>

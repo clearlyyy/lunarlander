@@ -23,6 +23,7 @@ import MainMenu from './MainMenu.js';
 import EscMenu from './EscMenu.js';
 import TileManager from './TilesManager.js';
 import PhysicsWorld from './PhysicsWorld.js';
+import { getCookie, setCookie } from './cookies.js';
 
 const tips = [
     "Focus on the NavBall, it makes maneuvers a lot simpler.",
@@ -42,8 +43,8 @@ class App {
         this.photoMode = false;
         this.useRealValues = false;
         this.hasDied = false;
-        this.isInvisible = true;
-        this.easyControls = true;
+        this.isInvisible = false;
+        this.easyControls = false;
         this._isInMainMenu = true;
         this.isInCourse = false;
         this.isEscMenuOpen = false;
@@ -63,6 +64,8 @@ class App {
                 this.updateUIElements();
             });
         }
+
+        
 
         this.updateUIElements();
         this.clock = new THREE.Clock();
@@ -212,9 +215,75 @@ class App {
     }
 
     _bindEvents() {
+
+        const savedMass = getCookie("moonMass");
+        if (savedMass !== null) {
+            this.moonMass = parseFloat(savedMass);
+        } else {
+            this.moonMass = this.useRealValues ? 4.6e21 : 7.32e22;
+        }
+
         document.addEventListener('keydown', (event) => this._onKeyDown(event));
         document.addEventListener('keyup', (event) => this.keysDown[event.code] = false);
-        document.getElementById("tryagain-button").addEventListener('click', () => this.Start());
+        document.getElementById("tryagain-button").addEventListener('click', () => {
+            if (this.isInCourse) {
+                this.loadCourse(this.currentCourse);
+                this.StartGame();
+            } else {
+                this.Start()
+            }
+        });
+        document.getElementById("menu-button").addEventListener('click', () => {
+            this.GoToMainMenu();
+        });
+
+        // Mass settings
+        this.realMass = document.getElementById("real-mass");
+        this.superMass = document.getElementById("super-mass");
+        this.massSlider = document.getElementById("mass-slider");
+        this.massVal = document.getElementById("mass-val");
+        this.gravityVal = document.getElementById("gravity-val");
+        this.massSlider.value = this.moonMass;
+        this.moonMass = parseFloat(this.massSlider.value);
+        this.massVal.innerText = this.moonMass.toExponential(2);
+        const moonRadius = 1.74e6 / 4;
+        const gravity = ((this.G * this.moonMass) / (moonRadius * moonRadius)) / 9.80665;
+        this.gravityVal.innerText = gravity.toFixed(2);
+        this.massSlider.addEventListener('input', () => {
+            this.moonMass = parseFloat(this.massSlider.value);
+            this.massVal.innerText = this.moonMass.toExponential(2);
+            
+            const moonRadius = 1.74e6 / 4;
+            const gravity = ((this.G * this.moonMass) / (moonRadius * moonRadius)) / 9.80665;
+            this.gravityVal.innerText = gravity.toFixed(2);
+            setCookie("moonMass", this.moonMass, 365);
+        })
+        
+        this.realMass.addEventListener('click', () => {
+            this.moonMass = 4.6e21;
+            this.massVal.innerText = this.moonMass.toExponential(2);
+            this.massSlider.value = this.moonMass;
+            const moonRadius = 1.74e6 / 4;
+            const gravity = ((this.G * this.moonMass) / (moonRadius * moonRadius)) / 9.80665;
+            this.gravityVal.innerText = gravity.toFixed(2);
+            setCookie("moonMass", this.moonMass, 365);
+        });
+        this.superMass.addEventListener('click', () => {
+            this.moonMass = 7.32e22;
+            this.massVal.innerText = this.moonMass.toExponential(2);
+            this.massSlider.value = this.moonMass;
+            const moonRadius = 1.74e6 / 4;
+            const gravity = ((this.G * this.moonMass) / (moonRadius * moonRadius)) / 9.80665;
+            this.gravityVal.innerText = gravity.toFixed(2);
+            setCookie("moonMass", this.moonMass, 365);
+        });
+        this.massSlider.value = this.moonMass;
+
+        document.getElementById("go-to-game").addEventListener('click', () => {
+            document.getElementById("esc-menu").style.display = "none";
+            this.isEscMenuOpen = false;
+        })
+
     }
 
     _onKeyDown(event) {
@@ -401,7 +470,7 @@ class App {
             document.getElementById("death-velocity").innerText = vel;
             document.getElementById("death-screen").classList.add('active');
             document.getElementById("tip").innerText = tips[Math.floor(Math.random() * tips.length)];
-        }, 1000);
+        }, 200);
 
         this.timeWarp = 1;
         this.updateUIElements();
@@ -448,7 +517,57 @@ class App {
         });
     }
 
+        checkCollisions() {
+            if (this.hasDied) return;   
+            const world = this.physics.world;
+            const playerBody = this.player.body;
+            let isCollidingThisFrame = false;   
+            const dispatcher = world.getDispatcher();
+            const numManifolds = dispatcher.getNumManifolds();  
+            for (let i = 0; i < numManifolds; i++) {
+                const manifold = dispatcher.getManifoldByIndexInternal(i);
+                const body0 = manifold.getBody0();
+                const body1 = manifold.getBody1();
+
+                if (body0.ptr === playerBody.ptr || body1.ptr === playerBody.ptr) {
+                    const numContacts = manifold.getNumContacts();
+                    for (let j = 0; j < numContacts; j++) {
+                        const pt = manifold.getContactPoint(j);
+                        if (pt.getDistance() < 0) { 
+                            isCollidingThisFrame = true;
+
+                            // Get contact normal: Ammo returns normal pointing from body0 -> body1
+                            const normal = pt.get_m_normalWorldOnB();
+                            const normalVec = new THREE.Vector3(normal.x(), normal.y(), normal.z());
+
+                            // Project previous velocity along contact normal
+                            const impactVel = -this.player.prevVelocity.dot(normalVec);
+                            const speed = Math.max(impactVel, 0); // avoid negative
+
+                            if (!this.player.hasCollided) {
+                                if (speed > 25) { // death threshold
+                                    console.log("YOU DIED! Collision speed:", speed.toFixed(2), "m/s");
+                                    this.Died(speed.toFixed(2));
+                                } else {
+                                    console.log("Safe Landing", speed.toFixed(2), "m/s");
+                                }
+
+                                this.player.hasCollided = true;
+                            }
+                        }
+                    }
+                }
+            }   
+        if (!isCollidingThisFrame) {
+            this.player.hasCollided = false;
+        }
+    }   
+
     GoToMainMenu() {
+        if (this.isInCourse) {
+            this.courseManager.destroy();
+        }
+        this.Start();
         this.isInMainMenu = true;
         this.EscMenu.hide();
         this.isEscMenuOpen = false;

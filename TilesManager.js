@@ -45,7 +45,7 @@ export default class TileManager {
         const loader = new THREE.TextureLoader();
         this.detailNormal = loader.load('textures/moon_01_nor_gl_4k.jpg');
         this.detailNormal.wrapS = this.detailNormal.wrapT = THREE.RepeatWrapping;
-        this.detailNormal.repeat.set(10, 10);
+        this.detailNormal.repeat.set(20, 20);
 
         this.tilesRenderer.addEventListener('load-model', ({ scene: tileScene }) => {
             tileScene.traverse((c) => {
