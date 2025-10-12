@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Lunar Lander</title>
+    <link rel="icon" type="image/x-icon" sizes="48x48" href="/lunarlander/favicon_48.ico">
+    <style>
+      body, html { margin: 0; padding: 0; overflow: hidden; height: 100%; }
+      #threeCanvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+    </style>
+    <script type="module" crossorigin src="/lunarlander/assets/index-3F1Fmc01.js"></script>
+    <link rel="stylesheet" crossorigin href="/lunarlander/assets/index-CWb24tMB.css">
+  </head>
+  <body>
+
+    <h1 id="timer" class="timer">00:00:00</h1>
+
+    <div class="finish-screen" id="finish-screen">
+      <div class="new-high-score-screen" id="new-high-score-screen">
+        <h1 class="new-high-score" id="new-high-score">New High Score!</h1>
+        <h1 class="final-time" id="final-time-new">00:00:00</h1>
+        <h2>Your old time: <span id="old-time-new">00:00:00</span></h2>
+        <div class="final-buttons">
+          <div class="button end-screen" id="retry">Retry</div>
+          <div class="button end-screen" id="m1">Menu</div>
+        </div>
+      </div>
+      <div class="final-time-screen" id="final-time-screen">
+        <h1 class="final-time" id="final-time-display">Final Time: </h1>
+        <h1 class="final-time" id="final-time">00:00:00</h1>
+        <h2>Your Best Time: <span id="old-time">00:00:00</span></h2>
+        <div class="final-buttons">
+          <div class="button end-screen" id="retry2">Retry</div>
+          <div class="button end-screen" id="m2">Menu</div>
+        </div>
+      </div>
+    </div>
+
+    <div id="main-menu">
+      <div class="menu-container">
+          <img class="logo" src="lunarlander-logo.png"/>
+          <h1 class="tag">Explore the moon at 1/4th scale.</h1>
+          <div id="course-select" class="course-select">
+            <div class="course-header">
+            <p class="note">Note: These are much easier on Camera Relative Controls And more fun using the Super Moon and Thrust options. (see Settings), </p>
+            <div class="ding">
+              <h1 class="back-button" id="back-button"><<</h1>
+              <h1>Available Courses: </h1>
+            </div>
+            </div>
+            <div id="course-buttons" class="button-container">
+              
+            </div>
+          </div>
+          <div class="Menu" id="menu-page">
+            <div id="free-flight" class="button">
+              Free Flight
+            </div>
+            <div id="courses" class="button">
+              <img class="flag" src="flag.svg"/>
+              Courses
+            </div>
+            <div id="settings" class="button">
+              Settings
+            </div>
+            <p class="adv">If you like this game, check out <a class="link2" href="https://sol-system.live">sol-system</a></p>
+          </div>
+
+        </div>
+    </div>
+
+    <div class="settings" id="settings-page">
+      <img class="settings-logo" src="lunarlander-logo.png"/>
+      <div class="button return" id="exit-settings">Return</div>
+      <h1>Settings</h1>
+      <hr style="width: 90%"/>
+      <div class="controls-settings">
+        <h2>Craft Control Scheme</h2>
+        <h3>Selected: <span id="currentControlSetting">Camera Relative</span></h2>
+          <div class="oneline">
+            <div class="button setting" id="world">
+              World Relative
+            </div>
+            <div class="button setting" id="camera">
+              Camera Relative
+            </div>
+          </div>
+        </div>
+        <hr style="width: 90%"/>
+        <div class="controls-settings">
+          <h2>Craft Settings</h2>
+          <div class="oneline">
+            <div class="button setting" id="realthrust">
+              Real Thrust (45 kN)
+            </div>
+            <div class="button setting" id="superthrust">
+              Super Thruster (1000 kN)
+            </div>
+          </div>
+          <input type="range" min="5", max="10000" value="1000" id="thrust-slider" class="slider"><p class="slider-value">Thrust: <span id="thrust-val">0 kN</span></p></input>
+          <label class="godmode">
+          <input type="checkbox" id="godmode">
+          God Mode (Cannot Explode)
+          </label>
+        </div>
+        <hr style="width: 90%;"/>
+        <div class="controls-settings">
+          <h2>Moon Settings</h2>
+          <div class="oneline">
+            <div class="button setting" id="real-mass">
+              Real Mass (0.165g)
+            </div>
+            <div class="button setting" id="super-mass">
+              Super Moon (2.64g)
+            </div>
+          </div>
+          <input type="range" min="3.1e20", max="1e23" value="1000" id="mass-slider" class="slider"><p class="slider-value">Mass: <span id="mass-val">0 </span> Kg (<span id="gravity-val">1 </span> g)</p></input>
+
+        </div>
+      
+    </div>
+
+    <div id="esc-menu" class="esc-menu">
+      <div class="menu-div">
+        <img src="lunarlander-logo.png" class="ding"/>
+        <div class="button" id="go-to-main-menu">
+          Go To Main Menu
+        </div>
+        <div class="button" id="go-to-settings">
+          Settings
+        </div>
+        <div class="button" id="go-to-game">
+          Return to game
+        </div>
+      </div>
+    </div>
+
+    <div id="game-ui">
+    <div class="container">
+      <div class="velocity-container">
+        <h3 class="velocity-text">Velocity: </h3>
+        <h3 class="velocity" id="velocity">18.3m/s</h3>
+      </div>
+      <div class="navball-container">
+        <div id="throttle-container">
+          <div id="throttle-bar"></div>
+        </div>
+        <div id="descent-container">
+          <div id="descent-bar"></div>
+        </div>
+      </div>
+    </div>
+
+
+    <div class="death-container" id="death-screen">
+      <h1>Exploded Spacecraft</h1>
+      <div>
+        <h3>Crashed Into The Surface With a Velocity of <span id="death-velocity">0.0</span> m/s</h3>
+        <div class="death-buttons">
+          <div class="button" id="tryagain-button">
+            <p>Try Again</p>
+          </div> 
+          <div class="button menu-button" id="menu-button">
+            <p>Menu</p>
+          </div> 
+        </div>
+        <p class="tip">Tip: <span id="tip">Focus on the navball, it makes maneuvers much simpler.</span></p>
+      </div>
+    </div>
+
+    <h3 class="timewarp-title">Timewarp: <span id="timewarp">1</span>x</h3>
+    <div class="timewarp-container">
+      <div class="triangle" id="t1"></div>
+      <div class="triangle" id="t2"></div>
+      <div class="triangle" id="t3"></div>
+      <div class="triangle" id="t4"></div>
+      <div class="triangle" id="t5"></div>
+      <div class="triangle" id="t6"></div>
+      <div class="triangle" id="t7"></div>
+    </div>
+
+    <div class="controls-container">
+      <div class="controls">
+      <p>Shift: Throttle Up</p>
+      <p>CTRL:  Throttle Down</p>
+      <p>Z:     Max Throttle</p>
+      <p>X:     Kill Throttle</p>
+      <p>. (Period) Speed up time</p>
+      <p>, (Comma)  Slow down time</p>
+      </div>
+      <div class="controls">
+        <p>W: Pitch Down</p>
+        <p>S: Pitch Up</p>
+        <p>A: Yaw Left</p>
+        <p>D: Yaw Right</p>
+        <p>Q: Roll Left</p>
+        <p>E: Roll Right</p>
+      </div>
+    </div>
+    </div>
+
+    <div class="footer">
+      <p>© 2025 LunarLander Beta</p>
+      <p>Made by Clearly</p>
+      <a class="link" href="https://github.com/clearlyyy/moonlander" target="_blank">
+          <img src="./textures/github-mark-white.svg" 
+               alt="GitHub" 
+               style="width:16px; height:16px;">
+          <p>lunarlander</p>
+      </a>
+    </div>
+
+    <canvas id="threeCanvas"></canvas>
+  </body>
+</html>
+
