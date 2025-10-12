@@ -112,7 +112,7 @@
     width: 30px;           
     height: 150px;        
     background: rgba(0,0,0,0.5); 
-    background-image: url('./textures/throttle.png');
+    background-image: url('textures/throttle.png');
     border: 2px solid #494949;
     display: flex;
     overflow: hidden;
@@ -136,7 +136,7 @@
     width: 30px;           
     height: 150px;        
     background: rgba(0,0,0,0.5); 
-    background-image: url('./textures/descent.png');
+    background-image: url('textures/descent.png');
     border: 2px solid #494949;
     overflow: hidden;
     right: 12px;

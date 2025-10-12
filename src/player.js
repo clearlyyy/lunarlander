@@ -171,7 +171,7 @@ export default class Player {
             speed: 10000
         };
 
-        this.engineSound = new Audio('/sounds/thruster.wav');
+        this.engineSound = new Audio('sounds/thruster.mp3');
         this.engineSound.loop = true;
         this.engineSound.volume = 0.0001;
         this.audioUnlocked = false;        // track if user has unlocked audio

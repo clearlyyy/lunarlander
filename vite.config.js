@@ -22,4 +22,5 @@ export default defineConfig({
   optimizeDeps: {
     include: ['ammo.js'],
   },
+  base: '/lunarlander/',
 });
