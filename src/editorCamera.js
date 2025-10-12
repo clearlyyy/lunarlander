@@ -16,11 +16,11 @@ export default class EditorCamera {
         this.moveDown = false;
 
         // Rotation
-        this.pitch = 0; // around X axis
-        this.yaw = 0;   // around Y axis
+        this.pitch = 0;
+        this.yaw = 0;   
         this.isDragging = false;
 
-        this.camera.position.set(-54079, 319141, 292543);
+        this.camera.position.set(438988, 6766, 0);
 
         this._bindEvents();
 
@@ -81,10 +81,9 @@ export default class EditorCamera {
         if (!this.isDragging) return;
         this.yaw -= event.movementX * this.lookSpeed;
         this.pitch -= event.movementY * this.lookSpeed;
-        //this.pitch = Math.max(-Math.PI/2 + 0.001, Math.min(Math.PI/2 - 0.001, this.pitch)); // avoid gimbal lock
     }
 
-    update(delta) {
+    update() {
         // Calculate rotation quaternion
         const quat = new THREE.Quaternion()
             .setFromEuler(new THREE.Euler(this.pitch, this.yaw, 0, 'YXZ')); // Y = yaw, X = pitch

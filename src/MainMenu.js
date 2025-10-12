@@ -44,11 +44,6 @@ export default class MainMenu {
             document.getElementById("settings-page").style.display = "flex";
         })
 
-        document.getElementById("go-to-game").addEventListener('click', () => {
-            document.getElementById("esc-menu").style.display = "none";
-        })
-        
-
         // Load list of course JSON paths
         fetch('courses.json')
             .then(res => res.json())
@@ -85,8 +80,6 @@ export default class MainMenu {
                 diffDiv.className = 'difficulty';
                 diffDiv.innerText = "Difficulty: " + courseData.difficulty || '';
 
-
-                // Append name and description inside button
                 infoDiv.appendChild(nameDiv);
                 infoDiv.appendChild(descDiv);
                 infoDiv.appendChild(diffDiv);
@@ -94,17 +87,19 @@ export default class MainMenu {
                 btn.appendChild(img);
                 btn.appendChild(infoDiv);
 
-                // Click to load course
                 btn.addEventListener('click', () => {
                     this.loadCourseCallback(file);
                 });
 
                 this.courseButtonsContainer.appendChild(btn);
-
+                
             } catch (err) {
                 console.error(`Failed to load course ${file}:`, err);
             }
         }
+        const MoreComing = document.createElement('h2');
+        MoreComing.innerText = "More Coming soon...";
+        this.courseButtonsContainer.appendChild(MoreComing);
     }
 
 

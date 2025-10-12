@@ -31,12 +31,10 @@ export default class Obstacle {
         
     }
 
-    // there is a lot of bullshit that makes no sense, just dont touch it, it works, the slighest change will fuck this up 
     async loadModel(quaternion) {
         try {
             const loader = new GLTFLoader();
 
-            // --- Load main glTF model ---
             const gltf = await loader.loadAsync(this.modelPath);
             this.mesh = gltf.scene;
             this.mesh.position.copy(this.position);
@@ -63,10 +61,10 @@ export default class Obstacle {
 
             this.scene.add(this.mesh);
 
-            // --- Create the visual mesh ---
+            // Create the visual mesh
             this._createVisualMesh();
 
-            // --- Load collider model ---
+            // Load collider model
             const colliderGltf = await loader.loadAsync(this.colliderPath);
             let colliderMesh = null;
             colliderGltf.scene.traverse(child => {

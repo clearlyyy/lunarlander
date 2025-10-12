@@ -47,7 +47,7 @@ export default class ObstacleBuilder {
 
         this.updateLabels();
 
-        // --- Events ---
+        // Events
         this.renderer.domElement.addEventListener('pointerdown', this.onPointerDown.bind(this));
         this.renderer.domElement.addEventListener('mousedown', this.onMouseDown.bind(this));
         window.addEventListener('keydown', (e) => this.onKeyDown(e));

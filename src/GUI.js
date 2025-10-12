@@ -5,7 +5,7 @@ export default class GUI {
   constructor(player, opts = {}) {
     this.player = player;
 
-    // Create the overlay container
+    
     this.container = document.createElement('div');
     this.container.style.position = 'absolute';
     this.container.style.top = '10px';
@@ -43,7 +43,7 @@ export default class GUI {
     const vz = vel.z().toFixed(2);
     this.velEl.innerText = `(${vx}, ${vy}, ${vz})`;
 
-    // Combined speed (magnitude)
+    // Combined speed 
     const speed = Math.sqrt(vel.x()*vel.x() + vel.y()*vel.y() + vel.z()*vel.z());
     this.combinedVelEl.innerText = speed.toFixed(2);
 
@@ -51,7 +51,7 @@ export default class GUI {
     const pos = this.player.body.getWorldTransform().getOrigin();
     this.posEl.innerText = `(${pos.x().toFixed(2)}, ${pos.y().toFixed(2)}, ${pos.z().toFixed(2)})`;
 
-    // Rotation (Euler angles in degrees)
+    // Rotation 
     const rot = this.player.body.getWorldTransform().getRotation();
     const quat = new THREE.Quaternion(rot.x(), rot.y(), rot.z(), rot.w());
     const euler = new THREE.Euler().setFromQuaternion(quat, 'YXZ');

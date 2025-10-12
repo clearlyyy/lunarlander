@@ -1,3 +1,7 @@
+// lunarlander.io
+// Written by Clearly :)
+
+
 import * as THREE from 'three';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
@@ -11,10 +15,8 @@ import { N8AOPass } from 'n8ao';
 import Ammo from 'ammo.js';
 import Player from './player';
 import ShipCamera from './shipCamera'; 
-import GUI from './GUI.js';
 import NavBall from './navBall.js';
 import Explosion from './Explosion.js';
-import Obstacle from './obstacle.js';
 import ObstacleBuilder from './obstacleBuilderHelper.js';
 import EditorCamera from './editorCamera.js';
 import CourseLoader from './CourseLoader.js';
@@ -34,18 +36,26 @@ const tips = [
     "You can get finer control with the throttle using Shift and CTRL",
     "The Apollo 11 Lunar module weights 15 tons fully fueled.",
     "The most efficient way to slow yourself for landing is performing a suicide burn. To do this, you wait till the very last second to fire your engines, slowing to 0 m/s as you land.",
-    "Try aligning your navball in one of the four cardinal directions, this can make rotating in the intended direction easier."
+    "Try aligning your navball in one of the four cardinal directions, this can make rotating in the intended direction easier.",
+    "You can always go into God Mode so you cant die! (check the settings)",
+    "Courses are much easier on the Camera Relative control scheme.",
+    "You can change the Mass of the moon, along with your ships thrust in the settings!",
 ];
 
 class App {
     constructor() {
+
+        // BEWARE: The course editor mode is scuffed and barely useable. 
+        //         Use caution before setting this to true.
         this.editorMode = false;
+        this._isInMainMenu = true;
+
+
         this.photoMode = false;
         this.useRealValues = false;
         this.hasDied = false;
         this.isInvisible = false;
         this.easyControls = false;
-        this._isInMainMenu = true;
         this.isInCourse = false;
         this.isEscMenuOpen = false;
         this.currentCourse = 'obstacles.json';
@@ -65,8 +75,6 @@ class App {
             });
         }
 
-        
-
         this.updateUIElements();
         this.clock = new THREE.Clock();
 
@@ -84,6 +92,7 @@ class App {
         this._updateUIVisibility();
         this._init();
         this._bindEvents();
+        console.log("Lunarlander.io - Made by Clearly\n Open Source on Github :)");
     }
 
     _setupScene() {
@@ -121,13 +130,14 @@ class App {
     }
 
     _setupComposer() {
+        this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
         this.composer = new EffectComposer(this.renderer);
         this.composer.addPass(new RenderPass(this.scene, this.camera));
 
         const n8aopass = new N8AOPass(this.scene, this.camera, window.innerWidth, window.innerHeight);
-        n8aopass.configuration.aoRadius = 5.0;
-        n8aopass.configuration.distanceFalloff = 3;
-        n8aopass.configuration.intensity = 2.0;
+        n8aopass.configuration.aoRadius = 10.0;
+        n8aopass.configuration.distanceFalloff = 8;
+        n8aopass.configuration.intensity = 3.0;
         n8aopass.configuration.color = new THREE.Color(0,0,0);
         this.composer.addPass(n8aopass);
 
@@ -284,6 +294,44 @@ class App {
             this.isEscMenuOpen = false;
         })
 
+        const savedGodMode = getCookie("godMode");
+        if (savedGodMode !== null) {
+            this.isInvisible = savedGodMode;
+        } else {
+            this.isInvisible = false;
+        }
+
+        const godCheckbox = document.getElementById('godmode');
+        godCheckbox.checked = this.isInvisible;
+        godCheckbox.addEventListener('change', () => {
+            this.isInvisible = godCheckbox.checked;
+            setCookie("godMode", this.isInvisible, 365);
+        })
+
+        const finishScreen = document.getElementById("finish-screen");
+        document.getElementById("retry").addEventListener('click', () => {
+            finishScreen.style.display = "none";
+            this.loadCourse(this.currentCourse);
+            this.courseManager?.reset();
+            this.Start();
+            this.player.throttle = 0;
+        });
+        document.getElementById("retry2").addEventListener('click', () => {
+            finishScreen.style.display = "none";
+            this.loadCourse(this.currentCourse);
+            this.courseManager?.reset();
+            this.Start();
+            this.player.throttle = 0;
+        });
+        document.getElementById("m1").addEventListener('click', () => {
+            this.GoToMainMenu();
+        });
+        document.getElementById("m2").addEventListener('click', () => {
+            this.GoToMainMenu();
+        });
+
+
+
     }
 
     _onKeyDown(event) {
@@ -298,6 +346,7 @@ class App {
         }
 
         if (event.code === 'Escape') {
+            document.getElementById("settings-page").style.display = "none";
             if (this.isInMainMenu) return;
             this.isEscMenuOpen ? this.EscMenu.hide() : this.EscMenu.show();
             this.isEscMenuOpen = !this.isEscMenuOpen;
@@ -320,7 +369,7 @@ class App {
                     this.player.body.setLinearVelocity(new Ammo.btVector3(0, 0, 0));
                     this.player.body.setAngularVelocity(new Ammo.btVector3(0, 0, 0));
                 }
-                this.player.canMove = false; // optional flag if used in your movement code
+                this.player.canMove = false; 
             } else {
                 // Restore player and UI
                 if (this.player?.mesh) this.player.mesh.visible = true;
@@ -511,10 +560,12 @@ class App {
                 this.courseLoader.description,
                 this.player
             );
+            this.courseManager.StartCourse();
             this.player.setPosition(this.courseLoader.playerStart);
             this.shipCamera.setRotation(this.courseLoader.playerRotation);
             this.isInCourse = true;
         });
+
     }
 
         checkCollisions() {
@@ -564,9 +615,9 @@ class App {
     }   
 
     GoToMainMenu() {
-        if (this.isInCourse) {
-            this.courseManager.destroy();
-        }
+        if (this.courseManager) this.courseManager.destroy();
+        document.getElementById("timer").style.display = "none";
+        document.getElementById("finish-screen").style.display = "none";
         this.Start();
         this.isInMainMenu = true;
         this.EscMenu.hide();

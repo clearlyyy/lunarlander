@@ -75,19 +75,19 @@ export default class Explosion {
       this.position.copy(position);
       this.container.position.copy(position);
 
-      // Fully restart the particle system manually
+      // restart the particle system
       this.system.age = 0;
       this.system.dead = false;
       this.system.alive = true;
 
-      // Reactivate emitter so it spawns particles again
+      // Reactivate emitter
       if (this.system.emitter) {
         this.system.emitter.age = 0;
         this.system.emitter.dead = false;
         this.system.emitter.emit = true;
       }
 
-      // Re-add if it was removed from the scene
+      // Readd if it was removed from the scene
       if (!this.container.parent && this.scene) {
         this.scene.add(this.container);
       }

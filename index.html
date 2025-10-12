@@ -2,7 +2,8 @@
 <html>
   <head>
     <meta charset="utf-8" />
-    <title>Moon Landing Test</title>
+    <title>Lunar Lander</title>
+    <link rel="icon" type="image/x-icon" sizes="48x48" href="/favicon_48.ico">
     <style>
       body, html { margin: 0; padding: 0; overflow: hidden; height: 100%; }
       #threeCanvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
@@ -11,15 +12,43 @@
   </head>
   <body>
 
+    <h1 id="timer" class="timer">00:00:00</h1>
+
+    <div class="finish-screen" id="finish-screen">
+      <div class="new-high-score-screen" id="new-high-score-screen">
+        <h1 class="new-high-score" id="new-high-score">New High Score!</h1>
+        <h1 class="final-time" id="final-time-new">00:00:00</h1>
+        <h2>Your old time: <span id="old-time-new">00:00:00</span></h2>
+        <div class="final-buttons">
+          <div class="button end-screen" id="retry">Retry</div>
+          <div class="button end-screen" id="m1">Menu</div>
+        </div>
+      </div>
+      <div class="final-time-screen" id="final-time-screen">
+        <h1 class="final-time" id="final-time-display">Final Time: </h1>
+        <h1 class="final-time" id="final-time">00:00:00</h1>
+        <h2>Your Best Time: <span id="old-time">00:00:00</span></h2>
+        <div class="final-buttons">
+          <div class="button end-screen" id="retry2">Retry</div>
+          <div class="button end-screen" id="m2">Menu</div>
+        </div>
+      </div>
+    </div>
+
     <div id="main-menu">
       <div class="menu-container">
-          <img class="logo" src="moonlander-logo.png"/>
+          <img class="logo" src="lunarlander-logo.png"/>
+          <h1 class="tag">Explore the moon at 1/4th scale.</h1>
           <div id="course-select" class="course-select">
+            <div class="course-header">
+            <p class="note">Note: These are much easier on Camera Relative Controls And more fun using the Super Moon and Thrust options. (see Settings), </p>
+            <div class="ding">
+              <h1 class="back-button" id="back-button"><<</h1>
+              <h1>Available Courses: </h1>
+            </div>
+            </div>
             <div id="course-buttons" class="button-container">
-              <div class="ding">
-                <h1 class="back-button" id="back-button"><<</h1>
-                <h1>Available Courses: </h1>
-              </div>
+              
             </div>
           </div>
           <div class="Menu" id="menu-page">
@@ -33,13 +62,14 @@
             <div id="settings" class="button">
               Settings
             </div>
+            <p class="adv">If you like this game, check out <a class="link2" href="https://sol-system.live">sol-system</a></p>
           </div>
 
         </div>
     </div>
 
     <div class="settings" id="settings-page">
-      <img class="settings-logo" src="moonlander-logo.png"/>
+      <img class="settings-logo" src="lunarlander-logo.png"/>
       <div class="button return" id="exit-settings">Return</div>
       <h1>Settings</h1>
       <hr style="width: 90%"/>
@@ -67,6 +97,10 @@
             </div>
           </div>
           <input type="range" min="5", max="10000" value="1000" id="thrust-slider" class="slider"><p class="slider-value">Thrust: <span id="thrust-val">0 kN</span></p></input>
+          <label class="godmode">
+          <input type="checkbox" id="godmode">
+          God Mode (Cannot Explode)
+          </label>
         </div>
         <hr style="width: 90%;"/>
         <div class="controls-settings">
@@ -80,13 +114,14 @@
             </div>
           </div>
           <input type="range" min="3.1e20", max="1e23" value="1000" id="mass-slider" class="slider"><p class="slider-value">Mass: <span id="mass-val">0 </span> Kg (<span id="gravity-val">1 </span> g)</p></input>
+
         </div>
       
     </div>
 
     <div id="esc-menu" class="esc-menu">
       <div class="menu-div">
-        <img src="moonlander-logo.png" class="ding"/>
+        <img src="lunarlander-logo.png" class="ding"/>
         <div class="button" id="go-to-main-menu">
           Go To Main Menu
         </div>
@@ -164,18 +199,18 @@
     </div>
 
     <div class="footer">
-      <p>© 2025 MoonLander Beta</p>
+      <p>© 2025 LunarLander Beta</p>
       <p>Made by Clearly</p>
       <a class="link" href="https://github.com/clearlyyy/moonlander" target="_blank">
           <img src="./textures/github-mark-white.svg" 
                alt="GitHub" 
                style="width:16px; height:16px;">
-          <p>moonlander</p>
+          <p>lunarlander</p>
       </a>
     </div>
 
     <canvas id="threeCanvas"></canvas>
-    <script type="module" src="/main.js"></script>
+    <script type="module" src="/src/main.js"></script>
   </body>
 </html>
 

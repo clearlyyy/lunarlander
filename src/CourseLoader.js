@@ -33,7 +33,7 @@ export default class CourseLoader {
             // Clear previous obstacles
             this.clearObstacles();
         
-            // --- Player Position ---
+            // Player Position 
             const playerPosData = data.playerpos || { x: 0, y: 0, z: 0 };
             this.playerStart = new THREE.Vector3(
                 playerPosData.x,
@@ -41,7 +41,7 @@ export default class CourseLoader {
                 playerPosData.z
             );
         
-            // --- Player Rotation (Euler) ---
+            // Player Rotation 
             const playerRotData = data.playerrot || { x: 0, y: 0, z: 0 };
             this.playerRotation = new THREE.Euler(
                 playerRotData.x,
@@ -49,12 +49,12 @@ export default class CourseLoader {
                 playerRotData.z
             );
         
-            // --- Course Metadata ---
+            // Course Metadata 
             this.difficulty = data.difficulty || 'normal';
             this.courseName = data.courseName || 'Unnamed Course';
             this.description = data.description || 'Unknown Description';
         
-            // --- Obstacles ---
+            // Obstacles
             const obstaclesArray = Array.isArray(data) ? data : data.obstacles || [];
             this.obstacles = [];
         

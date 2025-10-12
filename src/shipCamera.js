@@ -7,12 +7,12 @@ export default class ShipCamera {
         this.ship = ship;
         this.isInMainMenu = isInMainMenu;
 
-        this.distance = 150;          // default distance from ship
+        this.distance = 150;          
         this.minDistance = 20;
         this.maxDistance = 9000;
 
-        this.azimuth = 0;             // horizontal rotation
-        this.elevation = Math.PI / 6; // vertical rotation
+        this.azimuth = 0;             
+        this.elevation = Math.PI / 6; 
 
         this.isDragging = false;
         this.prevMouse = new THREE.Vector2();

@@ -23,10 +23,8 @@ export default class NavBall {
         this.mesh.frustumCulled = false;
         hudScene.add(this.mesh);
 
-        // --- Soft shadow behind navball ---
         const shadowGeo = new THREE.PlaneGeometry(radius * 2.7, radius * 2.7);
 
-        // make a radial gradient texture for blur
         const shadowCanvas = document.createElement('canvas');
         shadowCanvas.width = shadowCanvas.height = 256;
         const ctx = shadowCanvas.getContext('2d');
@@ -45,8 +43,8 @@ export default class NavBall {
         });
 
         this.shadow = new THREE.Mesh(shadowGeo, shadowMat);
-        this.shadow.position.set(0, this.mesh.position.y - 2, -5); // slightly behind the navball
-        this.shadow.renderOrder = 998; // render before navball
+        this.shadow.position.set(0, this.mesh.position.y - 2, -5); 
+        this.shadow.renderOrder = 998; 
         this.shadow.frustumCulled = false;
         hudScene.add(this.shadow);
 
@@ -66,7 +64,7 @@ export default class NavBall {
         this.retrogradeMarker.frustumCulled = false;
         this.mesh.add(this.retrogradeMarker);
         
-        // --- Center Cursor ---
+        // Center Cursor
         const cursorGeo = new THREE.PlaneGeometry(64, 64);
         const cursorTex = new THREE.TextureLoader().load('textures/nav_cursor.png');
         const cursorMat = new THREE.MeshBasicMaterial({
@@ -81,7 +79,6 @@ export default class NavBall {
         hudScene.add(this.cursor);
     }
     update() {
-        // Get player's position and orientation
         const playerPos = this.player.getPosition();
         const playerQuat = this.player.getQuaternion();
         
@@ -89,7 +86,7 @@ export default class NavBall {
         const moonCenter = new THREE.Vector3(0, 0, 0);
         const radialUp = playerPos.clone().sub(moonCenter).normalize();
         
-        // Create a rotation that aligns world Y-axis with the radial up direction
+        // Create a rotation that aligns world Y axis withthe radial up direction
         const worldUp = new THREE.Vector3(0, 1, 0);
         const surfaceQuat = new THREE.Quaternion().setFromUnitVectors(worldUp, radialUp);
         

@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { TilesRenderer } from '3d-tiles-renderer';
+
 const SCALE = 1 / 4;
-const HEIGHTMAP_SCALE = 2;
 
 export default class TileManager {
     constructor(scene, physics, camera, renderer, isInMainMenuFunc) {
@@ -22,7 +22,7 @@ export default class TileManager {
 
     async init() {
         const assetId = 2684829;
-        const accessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI3OTRiMmZhOS0xNzkxLTQyZDUtOTlhYy0zMGQ0YWVjMmZlYTUiLCJpZCI6MzQ2NDI5LCJpYXQiOjE3NTkzNTQzNTF9.3h2-SgUFlkPWdSz9PrgA7w7qZJVnDdB3IuIbyf6iDK4';
+        const accessToken = import.meta.env.VITE_ACCESS_TOKEN;
         const url = new URL(`https://api.cesium.com/v1/assets/${assetId}/endpoint`);
         url.searchParams.append('access_token', accessToken);
 
@@ -142,7 +142,7 @@ export default class TileManager {
 
         this.physics.addBody(this.currentCollisionBody);
 
-        // Debug wireframe mesh 
+        // Debug wireframe mesh UNCOMMENT THIS BLOCK TO SEE WIREFRAME VISUAL OF THE COLLISION MESH!
         //this.currentCollisionMesh = new THREE.Mesh(
         //    geometry.clone(),
         //    new THREE.MeshBasicMaterial({ color: 0xff0000, wireframe: true, transparent: true, opacity: 0.5 })
