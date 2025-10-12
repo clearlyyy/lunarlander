@@ -16,7 +16,7 @@ You can try it live at [LunarLander.io](https://lunarlander.io) or run it locall
 * **Newtonian Physics**: Park yourself into orbit!
 * **Cross-platform**: Play in any modern web browser with WebGL Support
 
-<img src="public/git-pics/pic1.png" width="330"/> <img src="public/git-pics/pic2.png" width="330"/> <img src="public/git-pics/pic3.png" width="330"/>
+<img src="public/git-pics/pic1.png" width="300"/> <img src="public/git-pics/pic2.png" width="300"/> <img src="public/git-pics/pic3.png" width="300"/>
 
 # 🌙 Installation and Setup
 Start by installng Git and NPM
@@ -50,6 +50,7 @@ npm run dev
 
 <hr>
 If you'd like to contribute i'd be happy to look at PRs, just be reasonable. Thanks.
+
 
 
 
