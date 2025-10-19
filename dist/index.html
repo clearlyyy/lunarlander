@@ -5,14 +5,27 @@
     <meta name="description" content="LunarLander.io is a browser-based lunar flight simulator. Fly the Apollo 11 module, test Newtonian physics, and complete timed obstacle courses for high scores.">
 
     <title>LunarLander.io – Browser-based Lunar Flight Simulator</title>
-    <link rel="shortcut icon" href="favicon.ico" type="image/x-icon">
-    <link rel="icon" type="image/x-icon" sizes="48x48" href="favicon.ico">
+    <link rel="icon" href="/favicon.ico" type="image/x-icon">
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "VideoGame",
+        "name": "Lunar Lander IO",
+        "url": "https://lunarlander.io",
+        "description": "Pilot an Apollo 11-style lunar module and land on a realistic 1/4-scale Moon in your browser. Experience real lunar gravity, fuel limits, and physics in this free space simulator.",
+        "genre": ["Simulation", "Physics", "Space"],
+        "applicationCategory": "Game",
+        "gamePlatform": ["Web browser", "Desktop", "Mobile"],
+        "operatingSystem": "Any",
+        "image": "https://lunarlander.io/assets/lunarlander_thumb.png"
+      }
+      </script>
     <style>
       body, html { margin: 0; padding: 0; overflow: hidden; height: 100%; }
       #threeCanvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
     </style>
-    <script type="module" crossorigin src="/assets/index-CTQBXuJs.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-CbzXSkDW.css">
+    <script type="module" crossorigin src="/assets/index-vNOo6rXB.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-e1Z1Svb5.css">
   </head>
   <body>
 
@@ -65,6 +78,10 @@
             </div>
             <div id="settings" class="button">
               Settings
+            </div>
+            <div style="display: flex; gap: 20px;" class="links">
+              <a class="link3" href="/about.html">About</a>
+              <a class="link3" href="/howtoplay.html">How To Play</a>
             </div>
             <p class="adv">If you like this game, check out <a class="link2" href="https://sol-system.live">sol-system</a></p>
           </div>
@@ -120,7 +137,6 @@
           <input type="range" min="3.1e20", max="1e23" value="1000" id="mass-slider" class="slider"><p class="slider-value">Mass: <span id="mass-val">0 </span> Kg (<span id="gravity-val">1 </span> g)</p></input>
 
         </div>
-      
     </div>
 
     <div id="esc-menu" class="esc-menu">
@@ -153,7 +169,6 @@
         </div>
       </div>
     </div>
-
 
     <div class="death-container" id="death-screen">
       <h1>Exploded Spacecraft</h1>
