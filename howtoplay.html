@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="How To Play LunarLander.io – Learn How to Play">
+  <title>How To Play – LunarLander.io</title>
+
+  <link rel="icon" href="/favicon.ico" type="image/x-icon">
+  <link rel="stylesheet" href="ui.css">
+</head>
+<body>
+  <div class="about-page">
+    <div class="banner">
+    <div class="button about-button" id="go-back-button">Play the Game!</div>
+    <img class="logo-about" src="/lunarlander-logo.png"/>
+    <h1>How to Play</h1>
+    </div>
+    <div style="text-align: center" class="info">
+      <div class="Header">
+      <p class="About-header">
+        In this section, we will go over how to play the game, its features, and we will understand the different control types.
+      </p>
+      </div>
+      
+    </div>
+        <div style="background-color: #2f2f2f" class="info2">
+            <div class="info">
+              <h1 style="color: #DFDFDF; font-size: 1.5rem">The Main Menu and Settings page<h1>
+              <p style="font-size: 1.2rem">
+                The Main Menu features three options: Free Flight, Courses and Settings.
+              </p>
+              <p>
+                - Free Flight allows you to explore the moon unrestricted, there is no goal, just explore to your hearts content. 
+              </p>
+              <p>
+                - Courses are timed obstacle courses set in different areas of the moon, these are more restricted. The goal is simply to complete the obstacle course in the least time possible. 
+              </p>
+              <p>
+                - The Settings page allows to you modify various aspects of the gameplay. The camera controls (We will go over this later.), The Moons Mass (Affects the gravitational pull),
+                  God Mode (You cannot die with this enabled.), Your Thrust settings (Real Apollo 11 descent thrust at 45kN).
+              </p>
+            </div>
+        </div>
+
+    <div class="info2">
+        <div class="info">
+          <h1 style="color: #DFDFDF">Camera Controls and the NavBall</h1>
+          <p style="font-size: 1.2rem">
+            There are two types of camera controls; World Relative and Camera Relative. These two control schemes function very differently. And its important you understand their differences.
+            You may have played games like Kerbal Space Program, games like these typically use World Relative control, forcing the user to really pay attention to their Nav Ball to orient themselves efficiently. 
+            The Forward vector is North. And your controls are relative to the world. 
+
+            There is also Camera Relative. In my opinion this is easier for beginners. As the forward vector of the spacecraft is always the direction the camera is facing.
+            For obstacle courses this is really the way to go.
+          </p>
+          <p style="font-size: 1.2rem">
+            Now we have the Nav Ball.
+            The Navball is a simple instrument meant to help the pilot understand their orientation in the world.
+            The ball simply shows the Horizon aswell as the four cardinal directions; North, East, South and West.
+          </p>
+          <p style="font-size: 1.2rem">
+            Understanding Prograde and Retrograde vectors on the Nav Ball.
+            On the navball you'll notice theres two little dots, a green and a yellow one.
+            The Green one indicates your "Prograde" Vector, and the yellow one indicates your "Retrograde" Vector.
+            The Prograde vector is just the direction you're currently moving relative to the surface. 
+            The Retrograde vector is just the opposite of the Prograde vector.
+
+            So if you want to land the craft nicely, try orienting the Nav Ball so that the cursor is on the retrograde vector the whole time while burning the engines. 
+          </p>
+
+        </div>
+    </div>
+
+    <div style="background-color: #1f4f1f" class="info2">
+        <div class="info">
+          <h1 style="color: #DFDFDF">Controls</h1>
+          <p style="font-size: 1.1rem">
+            The controls for the craft are always on the top-right of the screen in-game.
+            <hr/>
+          </p>
+          <p>
+
+            Left Shift is to throttle up. <br>
+            Left Control is to throttle down. <br>
+            Z Is more Max Throttle.<br>
+            X is to Kill all Throttle.<br>
+            . (Period) is to speed up time.<br>
+            , (Comma) is to slow down time.<br>
+            W, A, S, D, Q and E are for controlling the orientation of the craft.<br>
+          </p>
+        </div>
+    </div>
+    <div style="background-color: #1f1f1f" class="info2">
+        <div class="info">
+          <h1 style="color: #DFDFDF">Final Notes</h1>
+          <p style="font-size: 1.1rem">
+            Thats how to play the game!, if your still confused, look up some of the terms mentioned in this guide, you may get a better understanding. But other than that, the only way to get better is to practice, and figure out what settings work best for you! 
+          </p>
+        </div>
+    </div>
+  </div> 
+  <script>
+    document.getElementById("go-back-button").addEventListener('click', () => {
+        window.location.href ="/"
+    }) 
+  </script>
+</body>

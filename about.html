@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="About LunarLander.io – Learn more about this browser-based lunar flight simulator">
+  <title>About – LunarLander.io</title>
+
+  <link rel="icon" href="/favicon.ico" type="image/x-icon">
+  <link rel="stylesheet" href="ui.css">
+</head>
+<body>
+  <div class="about-page">
+    <div class="banner">
+    <div class="button about-button" id="go-back-button">Play the Game!</div>
+    <img class="logo-about" src="/lunarlander-logo.png"/>
+    <h1>About</h1>
+    </div>
+    <div style="text-align: center" class="info">
+      <div class="Header">
+      <p class="About-header"><span style="font-weight: bold">Lunar Lander</span> is a browser-based lunar flight simulator all about flying the Apollo 11 Lunar Descent Module around a 1/4th scale version
+          of our moon. No ads, no interuptions, open-source and free for everyone. Try to get new high scores in obstacle courses, or simply explore the moon in free flight.</p>
+      </div>
+      
+    </div>
+        <div style="background-color: #2f2f2f" class="info2">
+            <div class="info">
+              <h1 style="color: #DFDFDF; font-size: 1.5rem">Beta Release!</h1>
+              <p style="font-size: 1.2rem">
+                LunarLander is still being updated and worked on, this means some features may not work correctly, or in unintended ways.
+                Many features are still actively being worked on. Here is some targets i'm aiming at for a full release.
+              </p>
+              <p>
+                - Functional Course Editor (Allow users to build and share courses)
+              </p>
+              <p>
+                - Leaderboards for high-scores on official courses.
+              </p>
+              <p>
+                - More Post-Processing options in the settings.
+              </p>
+            </div>
+        </div>
+
+    <div class="info2">
+        <div class="info">
+          <h1 style="color: #DFDFDF">Open Source!</h1>
+          <p style="font-size: 1.2rem">LunarLander.io is completely open-source and free. This means you can look at the source code, modify it and do whatever you want locally.
+             I Intend to keep it that way, if you have any suggestions for features of the game you'd like put into the main branch, prove the feature doesn't break functionality, write tests, and make a pull request!</p>
+        </div>
+    </div>
+    <div style="background-color: #1f1f1f" class="info2">
+        <div class="info">
+          <h1 style="color: #DFDFDF">Background</h1>
+          <p style="font-size: 1.2rem">
+            I'm Clearly. Im a developer based in Canada interested in 3D Graphics and game development, aswell as free-software.
+            LunarLander is a hobby project to learn more about ThreeJS and simulating big scenes on the browser. The project was started in September 2025,
+            and continues to be worked on whenever i have free time. Thanks for playing!
+          </p>
+        </div>
+    </div>
+  </div> 
+  <script>
+    document.getElementById("go-back-button").addEventListener('click', () => {
+        window.location.href ="/"
+    }) 
+  </script>
+</body>

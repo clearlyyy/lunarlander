@@ -46,7 +46,7 @@ class App {
     constructor() {
 
         // BEWARE: The course editor mode is scuffed and barely useable. 
-        //         Use caution before setting this to true.
+        //         Use caution before setting this to true. Also make sure _isInMainMenu is false when using editor mode.
         this.editorMode = false;
         this._isInMainMenu = true;
 
